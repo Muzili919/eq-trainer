@@ -60,6 +60,21 @@ export const api = {
   // Scenario library
   listScenarios: (role: 'auto' | 'all' | 'decoration_boss' | 'property_manager' | 'general' = 'auto') =>
     req<ScenarioListResp>('GET', `/api/v1/scenarios?role=${role}`),
+
+  // TTS
+  tts: async (text: string, emotion = 'neutral'): Promise<Blob | null> => {
+    const headers: Record<string, string> = {}
+    const token = getToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    try {
+      const res = await fetch(`${BASE}/api/v1/tts?text=${encodeURIComponent(text)}&emotion=${emotion}`, { headers })
+      if (res.status === 204) return null
+      if (!res.ok) return null
+      return await res.blob()
+    } catch {
+      return null
+    }
+  },
 }
 
 export interface ScenarioSkillTag { id: string; name: string; icon: string }

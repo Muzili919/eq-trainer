@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 30
 
+    # 豆包 TTS（火山引擎）
+    volcengine_tts_appid: str = ""
+    volcengine_tts_token: str = ""
+    volcengine_tts_cluster: str = "volcano_tts"
+    volcengine_tts_voice: str = "BV700_streaming"  # 灿灿
+
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
 

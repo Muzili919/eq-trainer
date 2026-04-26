@@ -37,26 +37,47 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
 
 // ── TTS hook ──────────────────────────────────────────────────────────────
 function useTTS() {
-  const supported = typeof window !== 'undefined' && 'speechSynthesis' in window
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const browserSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
 
-  const speak = useCallback((text: string) => {
-    if (!supported) return
+  const stop = useCallback(() => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+    if (browserSupported) window.speechSynthesis.cancel()
+  }, [browserSupported])
+
+  const speak = useCallback((text: string, emotion?: string) => {
+    stop()
+    // 优先后端 TTS
+    api.tts(text, emotion).then(blob => {
+      if (blob) {
+        const url = URL.createObjectURL(blob)
+        const audio = new Audio(url)
+        audioRef.current = audio
+        audio.onended = () => { URL.revokeObjectURL(url); audioRef.current = null }
+        audio.play().catch(() => {
+          URL.revokeObjectURL(url)
+          audioRef.current = null
+          fallbackBrowserTTS(text)
+        })
+      } else {
+        fallbackBrowserTTS(text)
+      }
+    }).catch(() => fallbackBrowserTTS(text))
+  }, [stop])
+
+  function fallbackBrowserTTS(text: string) {
+    if (!browserSupported) return
     window.speechSynthesis.cancel()
     const u = new SpeechSynthesisUtterance(text)
     u.lang = 'zh-CN'
     u.rate = 1.05
-    // prefer a Chinese voice if available
     const voices = window.speechSynthesis.getVoices()
     const zh = voices.find(v => v.lang.startsWith('zh'))
     if (zh) u.voice = zh
     window.speechSynthesis.speak(u)
-  }, [supported])
+  }
 
-  const stop = useCallback(() => {
-    if (supported) window.speechSynthesis.cancel()
-  }, [supported])
-
-  return { speak, stop, supported }
+  return { speak, stop, supported: true }
 }
 
 // ── Speech input hook ─────────────────────────────────────────────────────
@@ -191,7 +212,7 @@ export default function PracticePage() {
     setPhase('chat')
     const msg: Message = { from: 'them', text: scenario.initial_message, emotion: scenario.ai_emotion }
     setMessages([msg])
-    speak(scenario.initial_message)
+    speak(scenario.initial_message, scenario.ai_emotion)
     // start timer after TTS has a moment to begin
     setTimeout(() => setTimerActive(true), 400)
   }
@@ -228,9 +249,9 @@ export default function PracticePage() {
           setChatMode('reflection')
         } else {
           // 正常 → 推对方消息
-          setMessages(m => [...m, { from: 'them', text: resp.ai_message!, emotion: resp.ai_emotion }])
+          setMessages(m => [...m, { from: 'them', text: resp.ai_message!, emotion: resp.ai_emotion ?? undefined }])
           if (!resp.should_end && resp.turn_number < 8) {
-            speak(resp.ai_message!)
+            speak(resp.ai_message!, resp.ai_emotion ?? undefined)
             setTimeout(() => setTimerActive(true), 400)
           } else {
             setEnded(true)
