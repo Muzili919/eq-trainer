@@ -112,7 +112,7 @@ eq-trainer/
 
 如果觉得有用，欢迎请作者喝杯咖啡 ☕
 
-[![爱发电](https://img.shields.io/badge/爱发电-支持作者-946ce6?logo=github-sponsors)](https://afdian.com/a/Muzili919)
+[![爱发电](https://img.shields.io/badge/爱发电-支持作者-946ce6?logo=github-sponsors)](https://ifdian.net/a/eqtrainer)
 
 <div align="center">
 <img src="docs/images/wechat-pay.jpg" width="200" alt="微信赞赏"> &nbsp;&nbsp;
