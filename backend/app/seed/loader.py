@@ -41,11 +41,13 @@ def seed_styles(session: Session) -> int:
 
 
 def seed_scenarios(session: Session) -> int:
-    """导入场景模板。若数量与种子不一致则清空重建（开发环境友好）"""
+    """导入场景模板。按 title 集合对比，有差异则清空重建"""
     data = scenarios_dicts()
     existing = session.exec(select(ScenarioTemplate)).all()
 
-    if len(existing) == len(data):
+    seed_titles = {d["title"] for d in data}
+    db_titles = {r.title for r in existing}
+    if seed_titles == db_titles:
         return 0
 
     for row in existing:
