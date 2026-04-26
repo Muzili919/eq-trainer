@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, StartPracticeResp, TurnResp } from '../lib/api'
 
 interface Message {
-  from: 'them' | 'me' | 'socratic'
+  from: 'them' | 'me' | 'socratic' | 'coach'
   text: string
   emotion?: string
   responseMs?: number
@@ -142,6 +142,8 @@ export default function PracticePage() {
   const [ended, setEnded] = useState(false)
   const [practiceId, setPracticeId] = useState<number | null>(null)
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('voice')
+  const [chatMode, setChatMode] = useState<'dialogue' | 'reflection'>('dialogue')
+  const [pendingSocratic, setPendingSocratic] = useState<string | null>(null)
 
   // timer
   const [timerActive, setTimerActive] = useState(false)
@@ -198,7 +200,6 @@ export default function PracticePage() {
     const userText = (text ?? input).trim()
     if (!userText || !practiceId || sending) return
 
-    // capture elapsed time
     const responseMs = timerActive ? Math.round((Date.now() - startTimeRef.current)) : 0
     setTimerActive(false)
     stopTTS()
@@ -207,23 +208,38 @@ export default function PracticePage() {
     setMessages(m => [...m, { from: 'me', text: userText, responseMs }])
 
     try {
-      const resp = await api.submitTurn(practiceId, userText)
-      const newMsgs: Message[] = []
-      if (resp.socratic_question) {
-        newMsgs.push({ from: 'socratic', text: resp.socratic_question })
-      }
-      newMsgs.push({ from: 'them', text: resp.ai_message, emotion: resp.ai_emotion })
-      setMessages(m => [...m, ...newMsgs])
-      setSheet({ resp, responseMs })
-
-      if (!resp.should_end && resp.turn_number < 8) {
-        speak(resp.ai_message)
+      if (chatMode === 'reflection' && pendingSocratic) {
+        // ── reflection 模式：回答教练问题 ──
+        const resp = await api.submitTurn(practiceId, userText, inputMode, 'reflection', pendingSocratic)
+        if (resp.coach_followup) {
+          setMessages(m => [...m, { from: 'coach', text: resp.coach_followup! }])
+        }
+        setPendingSocratic(null)
+        setChatMode('dialogue')
         setTimeout(() => setTimerActive(true), 400)
       } else {
-        setEnded(true)
+        // ── dialogue 模式：评分 + AI 回话 ──
+        const resp = await api.submitTurn(practiceId, userText, inputMode)
+
+        if (resp.socratic_question) {
+          // 苏格拉底问题出现 → 切到 reflection，不推对方消息
+          setMessages(m => [...m, { from: 'socratic', text: resp.socratic_question! }])
+          setPendingSocratic(resp.socratic_question)
+          setChatMode('reflection')
+        } else {
+          // 正常 → 推对方消息
+          setMessages(m => [...m, { from: 'them', text: resp.ai_message!, emotion: resp.ai_emotion }])
+          if (!resp.should_end && resp.turn_number < 8) {
+            speak(resp.ai_message!)
+            setTimeout(() => setTimerActive(true), 400)
+          } else {
+            setEnded(true)
+          }
+        }
+        setSheet({ resp, responseMs })
       }
     } catch (err: any) {
-      setMessages(m => [...m, { from: 'socratic', text: `出错了：${err.message}` }])
+      setMessages(m => [...m, { from: 'coach', text: `出错了：${err.message}` }])
       setTimerActive(true)
     } finally {
       setSending(false)
@@ -330,6 +346,14 @@ export default function PracticePage() {
             style={{ animationDelay: `${Math.min(i * .04, .3)}s` }}>
             {msg.from === 'socratic' ? (
               <div className="bubble-socratic">{msg.text}</div>
+            ) : msg.from === 'coach' ? (
+              <div className="max-w-[85%] animate-rise">
+                <div className="flex items-center gap-2 text-[11px] text-ember-600 dark:text-ember-300 pl-1 mb-1">
+                  <span className="w-5 h-5 rounded-full bg-ember-500/15 flex items-center justify-center text-[11px]">💡</span>
+                  <span className="font-display text-[10px] tracking-widest">教练</span>
+                </div>
+                <div className="bubble-coach">{msg.text}</div>
+              </div>
             ) : msg.from === 'them' ? (
               <div className="space-y-1.5 max-w-[85%]">
                 {msg.emotion && (
@@ -422,7 +446,7 @@ export default function PracticePage() {
                       <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
                       <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
                     </svg>
-                    <span>{timerActive ? '按住说话' : '等待 AI 出招'}</span>
+                    <span>{chatMode === 'reflection' ? (timerActive ? '按住回答' : '等一下想想') : (timerActive ? '按住说话' : '等待 AI 出招')}</span>
                   </>
                 )}
               </button>
@@ -430,8 +454,8 @@ export default function PracticePage() {
               /* ── Text mode ── */
               <>
                 <textarea
-                  className="text-input resize-none leading-relaxed py-2.5 flex-1"
-                  placeholder="你想怎么回应…"
+                  className={`text-input resize-none leading-relaxed py-2.5 flex-1 ${chatMode === 'reflection' ? 'border-ember-500/50 border-2' : ''}`}
+                  placeholder={chatMode === 'reflection' ? '想到什么就答，这句不会传给对方…' : '你想怎么回应…'}
                   rows={1}
                   value={input}
                   onChange={e => setInput(e.target.value)}
@@ -501,11 +525,13 @@ export default function PracticePage() {
             </div>
 
             {/* Score bars — 缩小显示 */}
-            <div className="space-y-2 mb-3 opacity-70">
-              {Object.entries(sheet.resp.scores).map(([k, v]) => (
-                <ScoreBar key={k} label={SCORE_LABELS[k] ?? k} value={v} />
-              ))}
-            </div>
+            {sheet.resp.scores && (
+              <div className="space-y-2 mb-3 opacity-70">
+                {Object.entries(sheet.resp.scores).map(([k, v]) => (
+                  <ScoreBar key={k} label={SCORE_LABELS[k] ?? k} value={v} />
+                ))}
+              </div>
+            )}
 
             {/* Rewrite */}
             {sheet.resp.rewrite_suggestion && (
@@ -516,10 +542,10 @@ export default function PracticePage() {
             )}
 
             <button onClick={() => setSheet(null)}
-              className="w-full mt-1 py-3 rounded-2xl font-display text-[12px] tracking-widest
-                bg-gradient-to-r from-violet-500 to-violet-600 text-white
-                shadow-[0_8px_20px_-6px_rgba(124,58,237,.5)]">
-              继续对话
+              className="w-full mt-1 py-3 rounded-2xl font-display text-[12px] tracking-widest text-white
+                shadow-[0_8px_20px_-6px_rgba(124,58,237,.5)]
+                bg-gradient-to-r from-violet-500 to-violet-600">
+              {sheet.resp.socratic_question ? '想一想' : '继续对话'}
             </button>
           </div>
         </div>

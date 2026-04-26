@@ -40,8 +40,12 @@ export const api = {
       ...(scenario_template_id ? { scenario_template_id } : {}),
       ...(diary_id ? { diary_id } : {}),
     }),
-  submitTurn: (practice_id: number, user_input: string, input_mode?: string) =>
-    req<TurnResp>('POST', `/api/v1/practice/${practice_id}/turn`, { user_input, input_mode: input_mode ?? 'text' }),
+  submitTurn: (practice_id: number, user_input: string, input_mode?: string, mode?: string, socratic_question?: string) =>
+    req<TurnResp>('POST', `/api/v1/practice/${practice_id}/turn`, {
+      user_input, input_mode: input_mode ?? 'text',
+      ...(mode ? { mode } : {}),
+      ...(socratic_question ? { socratic_question } : {}),
+    }),
   completePractice: (practice_id: number) =>
     req<{ ok: boolean; avg_score: number; skill_level: number }>('POST', `/api/v1/practice/${practice_id}/complete`),
 
@@ -91,10 +95,11 @@ export interface StartPracticeResp {
   initial_message: string; ai_emotion: string;
 }
 export interface TurnResp {
-  turn_number: number; ai_message: string; ai_emotion: string; should_end: boolean;
-  total_score: number; scores: Record<string, number>; narrative: string;
-  strengths: string; improvements: string; rewrite_suggestion: string | null;
+  turn_number: number; ai_message: string | null; ai_emotion: string | null; should_end: boolean;
+  total_score: number | null; scores: Record<string, number> | null; narrative: string | null;
+  strengths: string | null; improvements: string | null; rewrite_suggestion: string | null;
   socratic_question: string | null; socratic_encouragement: string | null;
+  coach_followup: string | null;
   well_used: string[]; missing: string[];
 }
 export interface DiaryInput {

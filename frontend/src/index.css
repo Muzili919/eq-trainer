@@ -214,6 +214,14 @@ html.dark .bubble-them { background: #221B42; border-color: #3A2F66; color: #EDE
 }
 html.dark .bubble-socratic { border-color: #A78BFA; background: rgba(34,27,66,.65); color: #EDE7FF; }
 
+/* Coach bubble (reflection mode) */
+.bubble-coach {
+  border: 1.5px solid #F97316; background: rgba(255,247,237,.8); color: #431407;
+  border-radius: 18px; padding: 12px 16px; max-width: 90%; line-height: 1.55; font-size: 13.5px;
+  backdrop-filter: blur(8px);
+}
+html.dark .bubble-coach { border-color: #FB923C; background: rgba(69,26,3,.65); color: #FED7AA; }
+
 /* Input dock (practice page) */
 .input-dock {
   position: fixed; bottom: 0; left: 0; right: 0;

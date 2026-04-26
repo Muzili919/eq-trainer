@@ -24,12 +24,11 @@ from app.services.auth import get_current_user
 from app.services.roleplay import get_ai_reply
 from app.services.scenario_gen import generate_scenario, render_template_opening
 from app.services.scoring import score_response
-from app.services.socratic import get_guiding_question
+from app.services.socratic import get_guiding_question, coach_followup
 
 router = APIRouter(prefix="/practice", tags=["practice"])
 
-SCORE_THRESHOLD_SOCRATIC = 70
-SCORE_THRESHOLD_DIRECT = 50
+SCORE_THRESHOLD_SOCRATIC = 60
 
 
 def _get_skill_or_404(skill_id: str, session: Session) -> Skill:
@@ -62,6 +61,8 @@ def _build_skills_compact(session: Session) -> str:
 def _build_dialog_history(turns: list[PracticeTurn]) -> str:
     lines = []
     for t in turns:
+        if t.turn_type == "reflection":
+            continue
         if t.ai_message:
             lines.append(f"对方：{t.ai_message}")
         lines.append(f"你：{t.user_input}")
@@ -188,21 +189,24 @@ async def start_practice(
 class TurnRequest(BaseModel):
     user_input: str
     input_mode: str = "text"  # text | voice
+    mode: str = "dialogue"  # dialogue | reflection
+    socratic_question: str | None = None  # reflection 模式必传，记录正在回答的教练问题
 
 
 class TurnResponse(BaseModel):
     turn_number: int
-    ai_message: str
-    ai_emotion: str
+    ai_message: str | None
+    ai_emotion: str | None
     should_end: bool
-    total_score: float
-    scores: dict
-    narrative: str
-    strengths: str
-    improvements: str
+    total_score: float | None
+    scores: dict | None
+    narrative: str | None
+    strengths: str | None
+    improvements: str | None
     rewrite_suggestion: str | None
     socratic_question: str | None
     socratic_encouragement: str | None
+    coach_followup: str | None  # reflection 模式下教练回复
     well_used: list[str]
     missing: list[str]
 
@@ -226,13 +230,53 @@ async def submit_turn(
         .order_by(PracticeTurn.turn_number)
     ).all()
     turn_number = len([t for t in turns if t.user_input]) + 1
+
+    skill = session.get(Skill, practice.skill_id)
+
+    # ── reflection 模式：教练追问，不调 AI 角色，不评分 ──
+    if body.mode == "reflection":
+        followup = await coach_followup(
+            skill_name=skill.name if skill else "",
+            socratic_question=body.socratic_question or "",
+            user_reflection=body.user_input,
+        )
+        new_turn = PracticeTurn(
+            practice_id=practice_id,
+            turn_number=turn_number,
+            turn_type="reflection",
+            user_input=body.user_input,
+            user_input_mode=body.input_mode,
+            coach_followup=followup,
+            socratic_question=body.socratic_question,
+        )
+        session.add(new_turn)
+        session.commit()
+
+        return TurnResponse(
+            turn_number=turn_number,
+            ai_message=None,
+            ai_emotion=None,
+            should_end=False,
+            total_score=None,
+            scores=None,
+            narrative=None,
+            strengths=None,
+            improvements=None,
+            rewrite_suggestion=None,
+            socratic_question=None,
+            socratic_encouragement=None,
+            coach_followup=followup,
+            well_used=[],
+            missing=[],
+        )
+
+    # ── dialogue 模式：评分 + AI 角色回话 ──
     dialog_history = _build_dialog_history([t for t in turns if t.user_input])
     their_words = turns[-1].ai_message if turns else ""
 
     style_references = _build_style_references(user, session)
     skills_compact = _build_skills_compact(session)
 
-    skill = session.get(Skill, practice.skill_id)
     scoring_result, ai_reply = await __import__("asyncio").gather(
         score_response(
             scenario_setup=practice.scenario_setup or "",
@@ -258,7 +302,7 @@ async def submit_turn(
     used_questions = [t.socratic_question for t in turns if t.socratic_question]
     socratic_attempts = sum(1 for t in turns if t.socratic_attempts)
 
-    if SCORE_THRESHOLD_DIRECT <= total_score < SCORE_THRESHOLD_SOCRATIC:
+    if total_score < SCORE_THRESHOLD_SOCRATIC:
         socratic_result = await get_guiding_question(
             skill_name=skill.name if skill else "",
             context=f"{practice.scenario_setup}\n\n{dialog_history}",
@@ -266,11 +310,13 @@ async def submit_turn(
             ai_feedback=scoring_result.get("improvements", ""),
             used_questions=used_questions,
             socratic_attempts=socratic_attempts,
+            total_score=total_score,
         )
 
     new_turn = PracticeTurn(
         practice_id=practice_id,
         turn_number=turn_number,
+        turn_type="dialogue",
         user_input=body.user_input,
         user_input_mode=body.input_mode,
         ai_message=ai_reply["message"],
@@ -304,6 +350,7 @@ async def submit_turn(
         rewrite_suggestion=scoring_result.get("rewrite_suggestion"),
         socratic_question=socratic_result["question"] if socratic_result else None,
         socratic_encouragement=socratic_result["encouragement"] if socratic_result else None,
+        coach_followup=None,
         well_used=scoring_result.get("well_used", []),
         missing=scoring_result.get("missing", []),
     )

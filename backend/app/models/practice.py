@@ -22,12 +22,14 @@ class PracticeTurn(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     practice_id: int = Field(foreign_key="practice.id", index=True)
     turn_number: int
+    turn_type: str = Field(default="dialogue", max_length=16)  # dialogue | reflection
 
     user_input: str = Field(default="")
     user_input_mode: str = Field(default="text", max_length=8)  # text | voice
 
     ai_message: str | None = None
     ai_emotion: str | None = None
+    coach_followup: str | None = None  # reflection 模式下教练的回复
 
     score_decency: float | None = None
     score_defusion: float | None = None
