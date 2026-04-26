@@ -197,6 +197,7 @@ class TurnResponse(BaseModel):
     should_end: bool
     total_score: float
     scores: dict
+    narrative: str
     strengths: str
     improvements: str
     rewrite_suggestion: str | None
@@ -297,6 +298,7 @@ async def submit_turn(
         should_end=ai_reply["should_end"],
         total_score=total_score,
         scores=scoring_result.get("scores", {}),
+        narrative=scoring_result.get("narrative", ""),
         strengths=scoring_result.get("strengths", ""),
         improvements=scoring_result.get("improvements", ""),
         rewrite_suggestion=scoring_result.get("rewrite_suggestion"),

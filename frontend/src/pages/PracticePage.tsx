@@ -464,20 +464,27 @@ export default function PracticePage() {
       {sheet && (
         <div className="scrim" onClick={() => setSheet(null)}>
           <div className="sheet" onClick={e => e.stopPropagation()}>
-            {/* Score + speed */}
-            <div className="flex items-start justify-between mb-4">
+            {/* Narrative — 主角 */}
+            {sheet.resp.narrative && (
+              <div className="mb-4 p-4 rounded-xl bg-gradient-to-br from-violet-500/8 to-ember-500/8 dark:from-violet-500/12 dark:to-ember-500/12">
+                <p className="text-[14px] leading-relaxed">{sheet.resp.narrative}</p>
+              </div>
+            )}
+
+            {/* Score + speed + skills */}
+            <div className="flex items-start justify-between mb-3">
               <div>
                 <div className="font-display text-[10px] tracking-[.3em] text-violet-600 dark:text-violet-300">SCORE</div>
-                <div className="font-display text-[36px] leading-none mt-1">
+                <div className="font-display text-[28px] leading-none mt-0.5">
                   {sheet.resp.total_score}
-                  <span className="text-[14px] text-ink-soft dark:text-violet-300/60 ml-1">/ 100</span>
+                  <span className="text-[12px] text-ink-soft dark:text-violet-300/60 ml-1">/ 100</span>
                 </div>
               </div>
               <div className="text-right space-y-1.5">
                 {sheet.responseMs > 0 && (() => {
                   const sp = speedLabel(sheet.responseMs)
                   return (
-                    <div className={`font-mono text-[12px] ${sp.color}`}>
+                    <div className={`font-mono text-[11px] ${sp.color}`}>
                       {sp.icon} {sp.label}
                     </div>
                   )
@@ -493,26 +500,14 @@ export default function PracticePage() {
               </div>
             </div>
 
-            {/* Score bars */}
-            <div className="space-y-3 mb-4">
+            {/* Score bars — 缩小显示 */}
+            <div className="space-y-2 mb-3 opacity-70">
               {Object.entries(sheet.resp.scores).map(([k, v]) => (
                 <ScoreBar key={k} label={SCORE_LABELS[k] ?? k} value={v} />
               ))}
             </div>
 
-            {/* Feedback */}
-            {sheet.resp.strengths && (
-              <div className="mb-3 p-3 rounded-xl bg-violet-500/6 dark:bg-violet-500/10">
-                <div className="font-display text-[10px] tracking-widest text-violet-600 dark:text-violet-300 mb-1">亮点</div>
-                <p className="text-[12.5px] leading-relaxed">{sheet.resp.strengths}</p>
-              </div>
-            )}
-            {sheet.resp.improvements && (
-              <div className="mb-3 p-3 rounded-xl bg-ember-500/6 dark:bg-ember-500/10">
-                <div className="font-display text-[10px] tracking-widest text-ember-600 dark:text-ember-300 mb-1">可以更好</div>
-                <p className="text-[12.5px] leading-relaxed">{sheet.resp.improvements}</p>
-              </div>
-            )}
+            {/* Rewrite */}
             {sheet.resp.rewrite_suggestion && (
               <div className="mb-3 p-3 rounded-xl border border-dashed border-violet-500/30">
                 <div className="font-display text-[10px] tracking-widest text-ink-soft dark:text-violet-300/70 mb-1">改写示范</div>

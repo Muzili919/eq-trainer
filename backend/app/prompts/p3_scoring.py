@@ -66,6 +66,7 @@ USER_TEMPLATE = """## 场景
     "style_match": 0-100
   }},
   "style_matched": "huangbo|xuzhisheng|lixueqin|hejiong|none",
+  "narrative": "用教练口吻写的 2-3 句话总结。不列数字，用具体场景和动作描述：你做了什么→效果如何→下一步可以怎样。例如：'你面对甲方的催促没有急着解释，而是先接住了对方的急躁情绪，这让气氛缓和了不少。如果在此基础上主动给出一个具体的时间节点，对方会更安心。'",
   "strengths": "好在哪（一两句话）",
   "improvements": "可以更好的方向",
   "rewrite_suggestion": "改写示范（可选，总分<70 时给）",

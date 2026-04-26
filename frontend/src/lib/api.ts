@@ -92,7 +92,7 @@ export interface StartPracticeResp {
 }
 export interface TurnResp {
   turn_number: number; ai_message: string; ai_emotion: string; should_end: boolean;
-  total_score: number; scores: Record<string, number>;
+  total_score: number; scores: Record<string, number>; narrative: string;
   strengths: string; improvements: string; rewrite_suggestion: string | null;
   socratic_question: string | null; socratic_encouragement: string | null;
   well_used: string[]; missing: string[];
