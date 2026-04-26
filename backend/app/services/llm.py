@@ -1,12 +1,17 @@
 """DeepSeek LLM 调用封装 - 统一接口，便于切换模型/Mock 测试"""
 
 import json
+import logging
 import re
 from typing import Any
 
 from openai import AsyncOpenAI, OpenAI
 
 from app.core.config import settings
+
+log = logging.getLogger(__name__)
+
+MAX_RETRIES = 2
 
 
 class LLMClient:
@@ -19,29 +24,44 @@ class LLMClient:
         )
 
     def chat_json(self, system: str, user: str, temperature: float = 0.7) -> dict[str, Any]:
-        """要求 LLM 输出 JSON。带容错 - DeepSeek V4 偶尔输出多余文本"""
-        resp = self._client.chat.completions.create(
-            model=settings.deepseek_model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=temperature,
-            response_format={"type": "json_object"},
-        )
-        text = resp.choices[0].message.content or "{}"
-        return _extract_json(text)
+        """要求 LLM 输出 JSON。带重试 + 容错"""
+        for attempt in range(MAX_RETRIES):
+            try:
+                resp = self._client.chat.completions.create(
+                    model=settings.deepseek_model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    temperature=max(0.3, temperature - attempt * 0.2),
+                    response_format={"type": "json_object"},
+                )
+                text = resp.choices[0].message.content or "{}"
+                result = _extract_json(text)
+                if not result.get("_parse_error"):
+                    return result
+                log.warning("LLM JSON parse failed (attempt %d): %s", attempt + 1, text[:100])
+            except Exception as e:
+                log.warning("LLM call failed (attempt %d): %s", attempt + 1, e)
+        return {}
 
     def chat_text(self, system: str, user: str, temperature: float = 0.7) -> str:
-        resp = self._client.chat.completions.create(
-            model=settings.deepseek_model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=temperature,
-        )
-        return resp.choices[0].message.content or ""
+        for attempt in range(MAX_RETRIES):
+            try:
+                resp = self._client.chat.completions.create(
+                    model=settings.deepseek_model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    temperature=max(0.3, temperature - attempt * 0.2),
+                )
+                text = resp.choices[0].message.content or ""
+                if text.strip():
+                    return text
+            except Exception as e:
+                log.warning("LLM chat_text failed (attempt %d): %s", attempt + 1, e)
+        return ""
 
 
 class AsyncLLMClient:
@@ -54,17 +74,43 @@ class AsyncLLMClient:
         )
 
     async def chat_json(self, system: str, user: str, temperature: float = 0.7) -> dict[str, Any]:
-        resp = await self._client.chat.completions.create(
-            model=settings.deepseek_model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=temperature,
-            response_format={"type": "json_object"},
-        )
-        text = resp.choices[0].message.content or "{}"
-        return _extract_json(text)
+        for attempt in range(MAX_RETRIES):
+            try:
+                resp = await self._client.chat.completions.create(
+                    model=settings.deepseek_model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    temperature=max(0.3, temperature - attempt * 0.2),
+                    response_format={"type": "json_object"},
+                )
+                text = resp.choices[0].message.content or "{}"
+                result = _extract_json(text)
+                if not result.get("_parse_error"):
+                    return result
+                log.warning("Async LLM JSON parse failed (attempt %d): %s", attempt + 1, text[:100])
+            except Exception as e:
+                log.warning("Async LLM call failed (attempt %d): %s", attempt + 1, e)
+        return {}
+
+    async def chat_text(self, system: str, user: str, temperature: float = 0.7) -> str:
+        for attempt in range(MAX_RETRIES):
+            try:
+                resp = await self._client.chat.completions.create(
+                    model=settings.deepseek_model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    temperature=max(0.3, temperature - attempt * 0.2),
+                )
+                text = resp.choices[0].message.content or ""
+                if text.strip():
+                    return text
+            except Exception as e:
+                log.warning("Async LLM chat_text failed (attempt %d): %s", attempt + 1, e)
+        return ""
 
 
 def _extract_json(text: str) -> dict[str, Any]:

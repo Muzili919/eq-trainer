@@ -1,8 +1,12 @@
 """场景生成服务 - 调用 P1 生成每日训练场景"""
 
+import logging
+
 from app.models.scenario import ScenarioTemplate
 from app.prompts import p1_scenario_gen
 from app.services.llm import get_async_llm
+
+log = logging.getLogger(__name__)
 
 
 async def generate_scenario(
@@ -31,14 +35,27 @@ async def generate_scenario(
         recent_avg_score=recent_avg_score,
         used_categories=used_str,
     )
-    result = await llm.chat_json(sys_p, usr_p, temperature=0.9)
+    try:
+        result = await llm.chat_json(sys_p, usr_p, temperature=0.9)
+        if result and result.get("title"):
+            return {
+                "title": result["title"],
+                "scenario_setup": result.get("scenario_setup", ""),
+                "role_brief": result.get("role_brief", ""),
+                "initial_message": result.get("initial_message", "来，我们聊聊。"),
+                "ai_emotion": result.get("ai_emotion", "neutral"),
+                "category": result.get("category", "stranger"),
+            }
+    except Exception as e:
+        log.error("generate_scenario failed: %s", e)
+
     return {
-        "title": result.get("title", ""),
-        "scenario_setup": result.get("scenario_setup", ""),
-        "role_brief": result.get("role_brief", ""),
-        "initial_message": result.get("initial_message", ""),
-        "ai_emotion": result.get("ai_emotion", "neutral"),
-        "category": result.get("category", "stranger"),
+        "title": f"练习：{skill_name}",
+        "scenario_setup": skill_description,
+        "role_brief": "对方",
+        "initial_message": "嗯，你说吧。",
+        "ai_emotion": "neutral",
+        "category": "stranger",
     }
 
 
