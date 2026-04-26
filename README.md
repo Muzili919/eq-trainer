@@ -110,6 +110,13 @@ eq-trainer/
 
 ## 支持这个项目
 
-如果这个项目对你有帮助，欢迎 Star ⭐
+如果觉得有用，欢迎请作者喝杯咖啡 ☕
 
-<!-- TODO: 添加赞赏码 -->
+[![爱发电](https://img.shields.io/badge/爱发电-支持作者-946ce6?logo=github-sponsors)](https://afdian.com/a/Muzili919)
+
+<div align="center">
+<img src="docs/images/wechat-pay.jpg" width="200" alt="微信赞赏"> &nbsp;&nbsp;
+<img src="docs/images/alipay.jpg" width="200" alt="支付宝赞赏">
+</div>
+
+如果这个项目对你有帮助，也欢迎 Star ⭐
