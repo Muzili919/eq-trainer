@@ -14,13 +14,15 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.db import get_session
+from app.models.diary import Diary, DiaryAnalysis
 from app.models.practice import Practice, PracticeTurn
+from app.models.scenario import ScenarioTemplate
 from app.models.skill import Skill, SkillProgress
 from app.models.style import StyleReference
 from app.models.user import User
 from app.services.auth import get_current_user
 from app.services.roleplay import get_ai_reply
-from app.services.scenario_gen import generate_scenario
+from app.services.scenario_gen import generate_scenario, render_template_opening
 from app.services.scoring import score_response
 from app.services.socratic import get_guiding_question
 
@@ -69,6 +71,8 @@ def _build_dialog_history(turns: list[PracticeTurn]) -> str:
 class StartRequest(BaseModel):
     skill_id: str
     difficulty: int = 3
+    scenario_template_id: int | None = None
+    diary_id: int | None = None
 
 
 class StartResponse(BaseModel):
@@ -85,17 +89,70 @@ async def start_practice(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    template: ScenarioTemplate | None = None
+    diary: Diary | None = None
+
+    if body.diary_id:
+        diary = session.get(Diary, body.diary_id)
+        if not diary or diary.user_id != user.id:
+            raise HTTPException(404, "日记不存在")
+        analysis = session.exec(
+            select(DiaryAnalysis).where(DiaryAnalysis.diary_id == body.diary_id)
+        ).first()
+        if analysis:
+            try:
+                identified = json.loads(analysis.identified_skills)
+            except Exception:
+                identified = []
+            if identified:
+                body.skill_id = identified[0]
+    elif body.scenario_template_id:
+        template = session.get(ScenarioTemplate, body.scenario_template_id)
+        if not template:
+            raise HTTPException(404, "场景模板不存在")
+        try:
+            primary_skills = json.loads(template.primary_skills)
+        except Exception:
+            primary_skills = []
+        if primary_skills:
+            body.skill_id = primary_skills[0]
+
     skill = _get_skill_or_404(body.skill_id, session)
-    scenario = await generate_scenario(
-        skill_name=skill.name,
-        skill_description=skill.description,
-        skill_patterns=skill.patterns or "",
-        difficulty=body.difficulty,
-        user_style_preference=user.target_style or "none",
-        user_target_style=user.target_style or "none",
-        recent_avg_score=0.0,
-        used_categories=[],
-    )
+
+    if diary:
+        analysis = session.exec(
+            select(DiaryAnalysis).where(DiaryAnalysis.diary_id == body.diary_id)
+        ).first()
+        diagnosis = analysis.diagnosis_brief if analysis else ""
+        scenario = {
+            "title": f"真实场景：{diary.other_party or '对方'}",
+            "scenario_setup": f"{diary.context}\n\n{diagnosis}".strip(),
+            "role_brief": diary.other_party or "对方",
+            "initial_message": diary.their_words,
+            "ai_emotion": "annoyed",
+            "category": "diary",
+        }
+    elif template:
+        opening = await render_template_opening(template)
+        scenario = {
+            "title": template.title,
+            "scenario_setup": template.role_brief,
+            "role_brief": template.role_brief,
+            "initial_message": opening["initial_message"],
+            "ai_emotion": opening["ai_emotion"],
+            "category": template.category,
+        }
+    else:
+        scenario = await generate_scenario(
+            skill_name=skill.name,
+            skill_description=skill.description,
+            skill_patterns=skill.patterns or "",
+            difficulty=body.difficulty,
+            user_style_preference=user.target_style or "none",
+            user_target_style=user.target_style or "none",
+            recent_avg_score=0.0,
+            used_categories=[],
+        )
     practice = Practice(
         user_id=user.id,
         skill_id=skill.id,

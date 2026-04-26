@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, StartPracticeResp, TurnResp } from '../lib/api'
 
 interface Message {
@@ -15,9 +15,10 @@ const SCORE_LABELS: Record<string, string> = {
 
 function speedLabel(ms: number): { icon: string; label: string; color: string } {
   const s = ms / 1000
-  if (s <= 5)  return { icon: '⚡️', label: `${s.toFixed(1)}s 闪电回复`, color: 'text-ember-500' }
-  if (s <= 10) return { icon: '✨', label: `${s.toFixed(1)}s 反应灵敏`, color: 'text-violet-500' }
-  return { icon: '🐢', label: `${s.toFixed(1)}s 慢热型`, color: 'text-ink-soft dark:text-violet-300/60' }
+  if (s < 3)   return { icon: '⚡', label: `${s.toFixed(1)}s 抢答`, color: 'text-amber-500' }
+  if (s <= 15)  return { icon: '✨', label: `${s.toFixed(1)}s 自然`, color: 'text-violet-500' }
+  if (s <= 30)  return { icon: '🤔', label: `${s.toFixed(1)}s 推敲`, color: 'text-ink-soft dark:text-violet-300/60' }
+  return { icon: '🐢', label: `${s.toFixed(1)}s 卡壳`, color: 'text-ember-500' }
 }
 
 function ScoreBar({ label, value }: { label: string; value: number }) {
@@ -99,14 +100,16 @@ function useSpeechInput(onResult: (text: string) => void) {
 }
 
 // ── Countdown ring component ──────────────────────────────────────────────
-function CountdownRing({ elapsed, limit = 10 }: { elapsed: number; limit?: number }) {
+function CountdownRing({ elapsed, limit = 30 }: { elapsed: number; limit?: number }) {
+  const remaining = Math.max(limit - elapsed, 0)
   const pct = Math.min(elapsed / limit, 1)
   const r = 16, circ = 2 * Math.PI * r
   const dash = circ * (1 - pct)
-  const color = elapsed < 5 ? '#F97316' : elapsed < 10 ? '#7C3AED' : '#5B4E7A'
+  const urgent = remaining < 5
+  const color = remaining > 15 ? '#7C3AED' : remaining > 5 ? '#F97316' : '#EF4444'
 
   return (
-    <div className="relative w-10 h-10 flex items-center justify-center">
+    <div className={`relative w-10 h-10 flex items-center justify-center ${urgent ? 'animate-pulse' : ''}`}>
       <svg width="40" height="40" viewBox="0 0 40 40" className="-rotate-90">
         <circle cx="20" cy="20" r={r} fill="none" stroke="rgba(124,58,237,.12)" strokeWidth="3"/>
         <circle cx="20" cy="20" r={r} fill="none" stroke={color} strokeWidth="3"
@@ -114,7 +117,7 @@ function CountdownRing({ elapsed, limit = 10 }: { elapsed: number; limit?: numbe
           strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.2s, stroke 0.5s' }}/>
       </svg>
       <span className="absolute font-mono text-[11px]" style={{ color }}>
-        {elapsed < 10 ? elapsed.toFixed(0) : '–'}
+        {Math.ceil(remaining)}
       </span>
     </div>
   )
@@ -123,6 +126,11 @@ function CountdownRing({ elapsed, limit = 10 }: { elapsed: number; limit?: numbe
 // ── Main component ────────────────────────────────────────────────────────
 export default function PracticePage() {
   const { skillId } = useParams<{ skillId: string }>()
+  const [searchParams] = useSearchParams()
+  const templateIdParam = searchParams.get('template')
+  const templateId = templateIdParam ? parseInt(templateIdParam, 10) : undefined
+  const diaryIdParam = searchParams.get('diary')
+  const diaryId = diaryIdParam ? parseInt(diaryIdParam, 10) : undefined
   const navigate = useNavigate()
 
   const [scenario, setScenario] = useState<StartPracticeResp | null>(null)
@@ -150,7 +158,7 @@ export default function PracticePage() {
   // load scenario
   useEffect(() => {
     if (!skillId) return
-    api.startPractice(skillId).then(s => {
+    api.startPractice(skillId, undefined, templateId, diaryId).then(s => {
       setScenario(s)
       setPracticeId(s.practice_id)
       setPhase('intro')
@@ -208,7 +216,7 @@ export default function PracticePage() {
       setMessages(m => [...m, ...newMsgs])
       setSheet({ resp, responseMs })
 
-      if (!resp.should_end && resp.turn_number < 6) {
+      if (!resp.should_end && resp.turn_number < 8) {
         speak(resp.ai_message)
         setTimeout(() => setTimerActive(true), 400)
       } else {

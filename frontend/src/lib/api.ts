@@ -33,8 +33,13 @@ export const api = {
   skill: (id: string) => req<SkillDetail>('GET', `/api/v1/skills/${id}`),
 
   // Practice
-  startPractice: (skill_id: string, difficulty?: number) =>
-    req<StartPracticeResp>('POST', '/api/v1/practice/start', { skill_id, difficulty: difficulty ?? 3 }),
+  startPractice: (skill_id: string, difficulty?: number, scenario_template_id?: number, diary_id?: number) =>
+    req<StartPracticeResp>('POST', '/api/v1/practice/start', {
+      skill_id,
+      difficulty: difficulty ?? 3,
+      ...(scenario_template_id ? { scenario_template_id } : {}),
+      ...(diary_id ? { diary_id } : {}),
+    }),
   submitTurn: (practice_id: number, user_input: string, input_mode?: string) =>
     req<TurnResp>('POST', `/api/v1/practice/${practice_id}/turn`, { user_input, input_mode: input_mode ?? 'text' }),
   completePractice: (practice_id: number) =>
@@ -47,6 +52,30 @@ export const api = {
 
   // Home aggregate
   homeSummary: () => req<HomeSummary>('GET', '/api/v1/home/summary'),
+
+  // Scenario library
+  listScenarios: (role: 'auto' | 'all' | 'decoration_boss' | 'property_manager' | 'general' = 'auto') =>
+    req<ScenarioListResp>('GET', `/api/v1/scenarios?role=${role}`),
+}
+
+export interface ScenarioSkillTag { id: string; name: string; icon: string }
+export interface ScenarioListItem {
+  id: number
+  category: string
+  sub_type: string
+  title: string
+  role_brief: string
+  tension_brief: string
+  user_goal_brief: string
+  difficulty: number
+  applicable_roles: string[]
+  primary_skill_id: string | null
+  skills: ScenarioSkillTag[]
+}
+export interface ScenarioListResp {
+  role: string
+  total: number
+  items: ScenarioListItem[]
 }
 
 // Types

@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api, DiaryResp } from '../lib/api'
 
 type Step = 'form' | 'loading' | 'result'
 
 export default function DiaryPage() {
+  const navigate = useNavigate()
   const [step, setStep] = useState<Step>('form')
   const [form, setForm] = useState({ context: '', other_party: '', their_words: '', my_response: '', outcome: '' })
   const [result, setResult] = useState<DiaryResp | null>(null)
@@ -106,6 +108,16 @@ export default function DiaryPage() {
               </div>
             ))}
           </div>
+
+          {/* 变成练习题 */}
+          <button onClick={() => {
+            if (!result) return
+            const skillId = result.identified_skills[0] || 'L1'
+            navigate(`/practice/${skillId}?diary=${result.diary_id}`)
+          }}
+            className="w-full py-3.5 rounded-2xl font-display text-[13px] tracking-widest bg-gradient-to-r from-ember-500 to-violet-500 text-white shadow-[0_8px_20px_-6px_rgba(124,58,237,.4)] active:scale-[.98] transition-transform">
+            用这个场景练习
+          </button>
 
           {/* Rewrite */}
           {rewrite ? (
