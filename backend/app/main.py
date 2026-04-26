@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 
-from app.api.v1 import auth, diary, home, practice, skills
+from app.api.v1 import auth, diary, home, practice, scenarios, skills
 from app.core.config import settings
 from app.core.db import engine, init_db
 from app.seed.loader import seed_all
@@ -35,6 +35,7 @@ app.include_router(skills.router, prefix="/api/v1")
 app.include_router(practice.router, prefix="/api/v1")
 app.include_router(diary.router, prefix="/api/v1")
 app.include_router(home.router, prefix="/api/v1")
+app.include_router(scenarios.router, prefix="/api/v1")
 
 
 @app.get("/")

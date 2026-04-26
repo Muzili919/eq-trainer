@@ -230,7 +230,7 @@ def _build_blind_box(user_id: int, session: Session) -> dict:
             if user_role in roles:
                 return t  # 精确角色匹配，直接返回
             if "general" in roles and fallback is None:
-                fallback = t
+                fallback = t  # general 场景作为 fallback
         return fallback
 
     scenes = []

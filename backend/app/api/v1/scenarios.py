@@ -37,7 +37,7 @@ def list_scenarios(
             applicable = json.loads(t.applicable_roles)
         except Exception:
             applicable = ["general"]
-        if target_role != "all" and target_role not in applicable:
+        if target_role != "all" and target_role not in applicable and "general" not in applicable:
             continue
 
         try:

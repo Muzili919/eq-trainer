@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage'
 import PracticePage from './pages/PracticePage'
 import DiaryPage from './pages/DiaryPage'
 import SkillsPage from './pages/SkillsPage'
+import ScenariosPage from './pages/ScenariosPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('eq_token')
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/practice/:skillId" element={<RequireAuth><PracticePage /></RequireAuth>} />
         <Route path="/diary" element={<RequireAuth><DiaryPage /></RequireAuth>} />
         <Route path="/skills" element={<RequireAuth><SkillsPage /></RequireAuth>} />
+        <Route path="/scenarios" element={<RequireAuth><ScenariosPage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {showTab && <TabBar />}

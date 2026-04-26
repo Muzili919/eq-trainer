@@ -1,160 +1,177 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { LogOut, User, Briefcase, Users, Heart, Baby, Brain, LayoutGrid, ArrowRight } from 'lucide-react'
+import { api, ScenarioListItem } from '../lib/api'
 
-interface Scenario {
-  id: string
-  title: string
-  category: string
-  difficulty: string
-  description: string
-  learning_objectives: string[]
+const CATEGORY_LABEL: Record<string, string> = {
+  workplace: '职场',
+  family: '家庭',
+  social: '朋友圈',
 }
 
-const CATEGORIES = [
-  { key: '', label: '全部', icon: LayoutGrid },
-  { key: 'WORKPLACE', label: '职场', icon: Briefcase },
-  { key: 'SOCIAL', label: '社交', icon: Users },
-  { key: 'INTIMATE', label: '亲密', icon: Heart },
-  { key: 'PARENT_CHILD', label: '亲子', icon: Baby },
-  { key: 'SELF', label: '自我', icon: Brain },
-] as const
-
-const CATEGORY_BADGE: Record<string, 'workplace' | 'social' | 'intimate' | 'parent' | 'self'> = {
-  WORKPLACE: 'workplace',
-  SOCIAL: 'social',
-  INTIMATE: 'intimate',
-  PARENT_CHILD: 'parent',
-  SELF: 'self',
+const CATEGORY_COLOR: Record<string, string> = {
+  workplace: 'from-violet-500 to-violet-600',
+  family: 'from-ember-500 to-ember-600',
+  social: 'from-violet-500/70 to-ember-500/70',
 }
 
-const DIFFICULTY_BADGE: Record<string, 'beginner' | 'intermediate' | 'challenge'> = {
-  beginner: 'beginner',
-  intermediate: 'intermediate',
-  challenge: 'challenge',
+const DIFFICULTY_DOTS = (n: number) => '●'.repeat(n) + '○'.repeat(5 - n)
+
+const ROLE_LABEL: Record<string, string> = {
+  decoration_boss: '装修老板',
+  property_manager: '物业经理',
+  general: '通用',
+  all: '全部',
 }
 
-const DIFFICULTY_LABEL: Record<string, string> = {
-  beginner: '入门',
-  intermediate: '进阶',
-  challenge: '挑战',
-}
+type FilterRole = 'auto' | 'all' | 'decoration_boss' | 'property_manager' | 'general'
 
 export default function ScenariosPage() {
   const navigate = useNavigate()
-  const [scenarios, setScenarios] = useState<Scenario[]>([])
-  const [activeCategory, setActiveCategory] = useState('')
-  const currentUser = localStorage.getItem('eq_user') || ''
+  const [items, setItems] = useState<ScenarioListItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeRole, setActiveRole] = useState<FilterRole>('auto')
+  const [activeCategory, setActiveCategory] = useState<string>('all')
+  const [resolvedRole, setResolvedRole] = useState<string>('')
 
   useEffect(() => {
-    const params = activeCategory ? `?category=${activeCategory}` : ''
-    fetch(`/api/scenarios${params}`)
-      .then((r) => r.json())
-      .then(setScenarios)
-  }, [activeCategory])
+    setLoading(true)
+    api.listScenarios(activeRole)
+      .then(d => {
+        setItems(d.items)
+        setResolvedRole(d.role)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [activeRole])
 
-  const handleLogout = () => {
-    localStorage.removeItem('eq_user')
-    navigate('/', { replace: true })
+  function startScenario(s: ScenarioListItem) {
+    if (!s.primary_skill_id) return
+    navigate(`/practice/${s.primary_skill_id}?template=${s.id}`)
   }
 
-  const goToPractice = (id: string) => (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    navigate(`/practice/${id}`)
-  }
+  // 按 category 分组
+  const grouped: Record<string, ScenarioListItem[]> = {}
+  items.forEach(it => {
+    if (activeCategory !== 'all' && it.category !== activeCategory) return
+    if (!grouped[it.category]) grouped[it.category] = []
+    grouped[it.category].push(it)
+  })
+
+  const categories = ['all', 'workplace', 'family', 'social']
 
   return (
-    <div className="min-h-screen gradient-cool">
-      {/* Header */}
-      <div className="glass border-b border-white/30 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gradient">选择练习场景</h1>
-            <p className="text-sm text-muted-foreground">选择一个场景，开始你的高情商沟通训练</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground flex items-center gap-1">
-              <User className="w-3.5 h-3.5" />
-              {currentUser}
-            </span>
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground">
-              <LogOut className="w-4 h-4" />
-              退出
-            </Button>
-          </div>
+    <div className="app-shell pb-24">
+      {/* 头部 */}
+      <header className="px-5 pt-4 pb-3 animate-rise">
+        <div className="flex items-center gap-2 mb-1">
+          <button onClick={() => navigate(-1)} className="w-8 h-8 grid place-items-center rounded-full hover:bg-violet-500/10 transition active:scale-95" aria-label="返回">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <h1 className="font-display text-[18px] tracking-wide">自由练习</h1>
+          <span className="ml-auto text-[10px] text-ink-soft dark:text-violet-300/50 font-mono tracking-widest">
+            {items.length} 个场景
+          </span>
         </div>
-      </div>
+        <p className="text-[12px] text-ink-soft dark:text-violet-300/55 ml-10">
+          挑一个想练的——按角色或按分类筛选
+        </p>
+      </header>
 
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        {/* Category Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-          {CATEGORIES.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setActiveCategory(key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                activeCategory === key
-                  ? 'gradient-primary text-white shadow-md shadow-violet-500/25'
-                  : 'bg-white/60 backdrop-blur-sm text-muted-foreground hover:bg-white/80 border border-white/40'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </button>
-          ))}
+      {/* 角色切换 */}
+      <section className="px-5 mt-2 animate-rise" style={{ animationDelay: '.05s' }}>
+        <p className="text-[10px] text-ink-soft/70 dark:text-violet-300/40 font-mono tracking-widest mb-2">ROLE · 角色</p>
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5">
+          {(['auto', 'decoration_boss', 'property_manager', 'general', 'all'] as FilterRole[]).map(r => {
+            const active = activeRole === r
+            const label = r === 'auto' ? `我的（${ROLE_LABEL[resolvedRole] || '加载中'}）` : ROLE_LABEL[r]
+            return (
+              <button key={r} onClick={() => setActiveRole(r)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-display tracking-wide transition-all
+                  ${active
+                    ? 'bg-gradient-to-r from-violet-500 to-violet-600 text-white shadow'
+                    : 'bg-violet-500/8 dark:bg-violet-500/15 text-ink-soft dark:text-violet-300/70 active:scale-95'}`}>
+                {label}
+              </button>
+            )
+          })}
         </div>
+      </section>
 
-        {/* Scenario Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {scenarios.map((s, i) => (
-            <div
-              key={s.id}
-              role="button"
-              tabIndex={0}
-              className="group cursor-pointer rounded-xl border bg-white/70 backdrop-blur-sm shadow-sm transition-all hover:shadow-lg hover:shadow-violet-500/5 hover:-translate-y-0.5 border-white/40 animate-fade-in"
-              style={{ animationDelay: `${i * 60}ms`, animationFillMode: 'both' }}
-              onClick={goToPractice(s.id)}
-              onKeyDown={(e) => { if (e.key === 'Enter') goToPractice(s.id)(e) }}
-            >
-              <div className="p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge variant={CATEGORY_BADGE[s.category] || 'secondary'}>
-                    {CATEGORIES.find((c) => c.key === s.category)?.label || s.category}
-                  </Badge>
-                  <Badge variant={DIFFICULTY_BADGE[s.difficulty] || 'secondary'}>
-                    {DIFFICULTY_LABEL[s.difficulty] || s.difficulty}
-                  </Badge>
-                </div>
+      {/* 分类筛选 */}
+      <section className="px-5 mt-4 animate-rise" style={{ animationDelay: '.1s' }}>
+        <p className="text-[10px] text-ink-soft/70 dark:text-violet-300/40 font-mono tracking-widest mb-2">CATEGORY · 分类</p>
+        <div className="flex gap-2">
+          {categories.map(c => {
+            const active = activeCategory === c
+            return (
+              <button key={c} onClick={() => setActiveCategory(c)}
+                className={`flex-1 py-1.5 rounded-lg text-[12px] font-display tracking-wide transition-all
+                  ${active
+                    ? 'bg-white dark:bg-night-card shadow text-violet-600 dark:text-violet-300 ring-1 ring-violet-500/30'
+                    : 'bg-violet-500/8 dark:bg-violet-500/10 text-ink-soft dark:text-violet-300/60'}`}>
+                {c === 'all' ? '全部' : CATEGORY_LABEL[c]}
+              </button>
+            )
+          })}
+        </div>
+      </section>
 
-                <h3 className="font-semibold text-foreground mb-2 group-hover:text-violet-600 transition-colors">
-                  {s.title}
-                </h3>
-
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                  {s.description}
-                </p>
-
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  {s.learning_objectives.slice(0, 3).map((obj, j) => (
-                    <span key={j} className="text-xs px-2 py-0.5 rounded-md bg-violet-50 text-violet-600">
-                      {obj}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="flex items-center text-xs text-violet-500 font-medium group-hover:gap-2 transition-all gap-1">
-                  开始练习
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </div>
+      {/* 列表 */}
+      {loading ? (
+        <section className="px-5 mt-5 space-y-3">
+          {[0, 1, 2].map(i => <div key={i} className="paper-card h-24 animate-pulse bg-violet-500/5" />)}
+        </section>
+      ) : items.length === 0 ? (
+        <section className="px-5 mt-12 text-center">
+          <div className="text-4xl mb-3">🌫️</div>
+          <p className="text-[13px] text-ink-soft dark:text-violet-300/60">这里还没有场景</p>
+          <p className="text-[11px] text-ink-soft/60 dark:text-violet-300/40 mt-1">试试切换角色或分类</p>
+        </section>
+      ) : (
+        <section className="px-5 mt-5 space-y-5">
+          {Object.entries(grouped).map(([cat, list], idx) => (
+            <div key={cat} className="animate-rise" style={{ animationDelay: `${.15 + idx * .05}s` }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`w-1 h-4 rounded-full bg-gradient-to-b ${CATEGORY_COLOR[cat] || 'from-violet-500 to-ember-500'}`} />
+                <h2 className="font-display text-[14px] tracking-wide">{CATEGORY_LABEL[cat] || cat}</h2>
+                <span className="text-[10px] text-ink-soft/60 dark:text-violet-300/40 font-mono">{list.length}</span>
+              </div>
+              <div className="space-y-2.5">
+                {list.map(s => (
+                  <button key={s.id} onClick={() => startScenario(s)}
+                    className="w-full text-left paper-card p-4 active:scale-[.99] transition-transform group">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <h3 className="font-display text-[14px] tracking-wide truncate">{s.title}</h3>
+                          <span className="text-[9px] tracking-widest text-violet-500/70 dark:text-violet-300/50 font-mono shrink-0">
+                            {DIFFICULTY_DOTS(s.difficulty)}
+                          </span>
+                        </div>
+                        <p className="text-[12px] text-ink-soft dark:text-violet-300/60 line-clamp-2 leading-relaxed mb-2">
+                          {s.role_brief}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {s.skills.map(tag => (
+                            <span key={tag.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-500/8 dark:bg-violet-500/15 text-[10px] text-violet-600 dark:text-violet-300 font-mono tracking-wide">
+                              <span>{tag.icon}</span>{tag.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <svg className="text-violet-500/50 group-hover:text-violet-500 transition-colors shrink-0 mt-1" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6"/>
+                      </svg>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
           ))}
-        </div>
-      </div>
+        </section>
+      )}
     </div>
   )
 }

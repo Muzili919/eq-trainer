@@ -1,5 +1,4 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
 
 const tabs = [
   {
@@ -28,7 +27,7 @@ const tabs = [
   },
   {
     key: 'free',
-    path: '/free',
+    path: '/scenarios',
     label: '自由',
     icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -52,31 +51,14 @@ export default function TabBar() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  async function handleClick(key: string, path: string) {
-    if (key === 'free') {
-      // 自由对练：随机抽一个技能进入练习
-      try {
-        const skills = await api.skills()
-        if (skills.length > 0) {
-          const random = skills[Math.floor(Math.random() * skills.length)]
-          navigate(`/practice/${random.id}`)
-          return
-        }
-      } catch {
-        // 失败兜底
-      }
-      navigate('/skills')
-      return
-    }
+  function handleClick(_key: string, path: string) {
     navigate(path)
   }
 
   return (
     <nav className="tabbar">
       {tabs.map(tab => {
-        const active = tab.key === 'free'
-          ? false
-          : location.pathname === tab.path
+        const active = location.pathname === tab.path
         return (
           <button
             key={tab.key}
