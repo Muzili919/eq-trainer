@@ -112,8 +112,7 @@ export default function DiaryPage() {
           {/* 变成练习题 */}
           <button onClick={() => {
             if (!result) return
-            const skillId = result.identified_skills[0] || 'L1'
-            navigate(`/practice/${skillId}?diary=${result.diary_id}`)
+            navigate(`/practice/L1?diary=${result.diary_id}`)
           }}
             className="w-full py-3.5 rounded-2xl font-display text-[13px] tracking-widest bg-gradient-to-r from-ember-500 to-violet-500 text-white shadow-[0_8px_20px_-6px_rgba(124,58,237,.4)] active:scale-[.98] transition-transform">
             用这个场景练习

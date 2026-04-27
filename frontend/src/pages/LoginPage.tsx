@@ -59,11 +59,18 @@ export default function LoginPage() {
     }
   }
 
-  function quickSwitch(acc: AccountEntry) {
+  async function quickSwitch(acc: AccountEntry) {
     saveToken(acc.token)
     saveUsername(acc.username)
     upsertAccount({ ...acc, last_seen: Date.now() })
-    navigate('/', { replace: true })
+    try {
+      await api.me()
+      navigate('/', { replace: true })
+    } catch {
+      localStorage.removeItem('eq_token')
+      localStorage.removeItem('eq_username')
+      setError('登录已过期，请重新登录')
+    }
   }
 
   return (

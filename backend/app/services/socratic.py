@@ -33,8 +33,11 @@ async def get_guiding_question(
         total_score=total_score,
     )
     result = await llm.chat_json(sys_p, usr_p, temperature=0.6)
+    question = result.get("question", "").strip()
+    if not question:
+        return None
     return {
-        "question": result.get("question", ""),
+        "question": question,
         "encouragement": result.get("encouragement", ""),
     }
 
@@ -64,9 +67,8 @@ async def coach_followup(
         "给 ta 一句回复，把 ta 引回场景。"
     )
     try:
-        result = await llm.chat_json(sys_p, usr_p, temperature=0.7)
-        if isinstance(result, dict):
-            return result.get("reply", result.get("message", ""))
-        return str(result) if result else "想得不错。那换个方式，重新回应对方试试？"
+        text = await llm.chat_text(sys_p, usr_p, temperature=0.7)
+        text = (text or "").strip()
+        return text or "想得不错。那换个方式，重新回应对方试试？"
     except Exception:
         return "想得不错。那换个方式，重新回应对方试试？"

@@ -34,8 +34,15 @@ async def get_ai_reply(
                 "message": result["message"],
                 "emotion": result.get("emotion", "neutral"),
                 "should_end": result.get("should_end", False),
+                "fallback": False,
             }
     except Exception as e:
         log.error("get_ai_reply failed: %s", e)
 
-    return {"message": "嗯……你继续说。", "emotion": "neutral", "should_end": False}
+    # AI 完全失败时返回兜底标志，前端识别后展示"重试"提示而不是当真对方说的话
+    return {
+        "message": "（连接对方的信号弱了一下，再试一次？）",
+        "emotion": "neutral",
+        "should_end": False,
+        "fallback": True,
+    }

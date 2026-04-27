@@ -38,6 +38,8 @@ export default function AccountSwitcher() {
   }, [open])
 
   function switchTo(acc: AccountEntry) {
+    // 先清旧 token，避免 reload 期间 inflight 请求带错 token
+    localStorage.removeItem('eq_token')
     activateAccount(acc.username)
     setOpen(false)
     window.location.reload()
@@ -50,6 +52,7 @@ export default function AccountSwitcher() {
 
   function logout() {
     const others = accounts.filter(a => a.username !== active?.username)
+    if (active) removeAccount(active.username)
     if (others.length > 0) {
       activateAccount(others[0].username)
       window.location.reload()
@@ -57,7 +60,6 @@ export default function AccountSwitcher() {
       logoutAll()
       navigate('/login', { replace: true })
     }
-    if (active) removeAccount(active.username)
   }
 
   const others = accounts.filter(a => a.username !== active?.username)

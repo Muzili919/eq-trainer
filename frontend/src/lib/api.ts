@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const BASE = import.meta.env.VITE_API_URL ?? ''
 
 function getToken(): string | null {
   return localStorage.getItem('eq_token')
@@ -14,6 +14,12 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
     body: body ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('eq_token')
+      localStorage.removeItem('eq_username')
+      window.location.href = '/login'
+      throw new Error('登录已过期')
+    }
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail ?? '请求失败')
   }
@@ -115,6 +121,7 @@ export interface TurnResp {
   strengths: string | null; improvements: string | null; rewrite_suggestion: string | null;
   socratic_question: string | null; socratic_encouragement: string | null;
   coach_followup: string | null;
+  ai_fallback?: boolean;
   well_used: string[]; missing: string[];
 }
 export interface DiaryInput {

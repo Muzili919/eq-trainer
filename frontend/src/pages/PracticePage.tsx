@@ -39,16 +39,32 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
 function useTTS() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const browserSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
+  const mountedRef = useRef(true)
 
   const stop = useCallback(() => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     if (browserSupported) window.speechSynthesis.cancel()
   }, [browserSupported])
 
+  // Cleanup on unmount
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.onended = null
+        audioRef.current = null
+      }
+      if (browserSupported) window.speechSynthesis.cancel()
+    }
+  }, [browserSupported])
+
   const speak = useCallback((text: string, emotion?: string) => {
     stop()
     // 优先后端 TTS
     api.tts(text, emotion).then(blob => {
+      if (!mountedRef.current) return
       if (blob) {
         const url = URL.createObjectURL(blob)
         const audio = new Audio(url)
@@ -95,7 +111,10 @@ function useSpeechInput(onResult: (text: string) => void) {
     ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
 
   const startRecording = useCallback(() => {
-    if (!supported) return
+    if (!supported) {
+      alert('您的浏览器不支持语音识别，请使用 Chrome 浏览器或切换到文字输入模式')
+      return
+    }
     const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition
     const r = new SR()
     r.lang = 'zh-CN'
@@ -115,6 +134,19 @@ function useSpeechInput(onResult: (text: string) => void) {
   const stopRecording = useCallback(() => {
     recogRef.current?.stop()
     setRecording(false)
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (recogRef.current) {
+        recogRef.current.onresult = null
+        recogRef.current.onend = null
+        recogRef.current.onerror = null
+        recogRef.current.stop()
+        recogRef.current = null
+      }
+    }
   }, [])
 
   return { recording, supported, startRecording, stopRecording }
@@ -148,10 +180,12 @@ function CountdownRing({ elapsed, limit = 30 }: { elapsed: number; limit?: numbe
 export default function PracticePage() {
   const { skillId } = useParams<{ skillId: string }>()
   const [searchParams] = useSearchParams()
-  const templateIdParam = searchParams.get('template')
-  const templateId = templateIdParam ? parseInt(templateIdParam, 10) : undefined
-  const diaryIdParam = searchParams.get('diary')
-  const diaryId = diaryIdParam ? parseInt(diaryIdParam, 10) : undefined
+  const templateIdRaw = searchParams.get('template')
+  const templateId = templateIdRaw && !isNaN(parseInt(templateIdRaw, 10))
+    ? parseInt(templateIdRaw, 10) : undefined
+  const diaryIdRaw = searchParams.get('diary')
+  const diaryId = diaryIdRaw && !isNaN(parseInt(diaryIdRaw, 10))
+    ? parseInt(diaryIdRaw, 10) : undefined
   const navigate = useNavigate()
 
   const [scenario, setScenario] = useState<StartPracticeResp | null>(null)
@@ -207,8 +241,11 @@ export default function PracticePage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [timerActive])
 
+  const startingRef = useRef(false)
+
   function startChat() {
-    if (!scenario) return
+    if (!scenario || startingRef.current) return
+    startingRef.current = true
     setPhase('chat')
     const msg: Message = { from: 'them', text: scenario.initial_message, emotion: scenario.ai_emotion }
     setMessages([msg])
@@ -243,21 +280,28 @@ export default function PracticePage() {
         const resp = await api.submitTurn(practiceId, userText, inputMode)
 
         if (resp.socratic_question) {
-          // 苏格拉底问题出现 → 切到 reflection，不推对方消息
+          // 方案 A：苏格拉底触发 → 暂停对方消息，只推教练问题
           setMessages(m => [...m, { from: 'socratic', text: resp.socratic_question! }])
           setPendingSocratic(resp.socratic_question)
           setChatMode('reflection')
+          setSheet({ resp, responseMs })
+        } else if (resp.ai_fallback) {
+          // AI 完全失败 → 显示提示但不读出来，不计入分数面板
+          setMessages(m => [...m, { from: 'coach', text: resp.ai_message ?? '网络抽风了，重新说一句试试' }])
+          setTimerActive(true)
         } else {
           // 正常 → 推对方消息
-          setMessages(m => [...m, { from: 'them', text: resp.ai_message!, emotion: resp.ai_emotion ?? undefined }])
-          if (!resp.should_end && resp.turn_number < 8) {
+          if (resp.ai_message) {
+            setMessages(m => [...m, { from: 'them', text: resp.ai_message!, emotion: resp.ai_emotion ?? undefined }])
             speak(resp.ai_message!, resp.ai_emotion ?? undefined)
+          }
+          if (!resp.should_end && resp.turn_number < 8) {
             setTimeout(() => setTimerActive(true), 400)
           } else {
             setEnded(true)
           }
+          setSheet({ resp, responseMs })
         }
-        setSheet({ resp, responseMs })
       }
     } catch (err: any) {
       setMessages(m => [...m, { from: 'coach', text: `出错了：${err.message}` }])
@@ -416,7 +460,7 @@ export default function PracticePage() {
         <div className="input-dock">
           <div className="flex gap-2 items-center max-w-[480px] mx-auto">
             {/* Mode toggle */}
-            <button onClick={() => setInputMode(m => m === 'text' ? 'voice' : 'text')}
+            <button onClick={() => { setInput(''); setInputMode(m => m === 'text' ? 'voice' : 'text') }}
               className="icon-btn flex-shrink-0" title={inputMode === 'text' ? '切换语音' : '切换文字'}>
               {inputMode === 'voice' ? (
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">

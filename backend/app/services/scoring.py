@@ -62,12 +62,12 @@ async def score_response(
     except Exception as e:
         log.error("score_response failed: %s", e)
         return {
-            "scores": {"decency": 60, "defusion": 60, "humor": 60, "style_match": 60},
-            "total_score": 60,
+            "scores": {"decency": 0, "defusion": 0, "humor": 0, "style_match": 0},
+            "total_score": 0,
             "strengths": "",
-            "improvements": "",
+            "improvements": "评分暂时出了点问题，这轮不计分。",
             "rewrite_suggestion": None,
-            "narrative": "评分暂时出了点问题，请继续练习。",
+            "narrative": "评分暂时出了点问题，这轮会自动跳过。",
             "well_used": [],
             "missing": [],
         }

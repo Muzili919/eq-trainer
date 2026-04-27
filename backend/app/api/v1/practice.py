@@ -25,6 +25,7 @@ from app.services.roleplay import get_ai_reply
 from app.services.scenario_gen import generate_scenario, render_template_opening
 from app.services.scoring import score_response
 from app.services.socratic import get_guiding_question, coach_followup
+from app.services.streak import touch_daily_log
 
 router = APIRouter(prefix="/practice", tags=["practice"])
 
@@ -207,6 +208,7 @@ class TurnResponse(BaseModel):
     socratic_question: str | None
     socratic_encouragement: str | None
     coach_followup: str | None  # reflection 模式下教练回复
+    ai_fallback: bool = False  # True 表示 AI 完全失败，前端应提示重试
     well_used: list[str]
     missing: list[str]
 
@@ -235,9 +237,11 @@ async def submit_turn(
 
     # ── reflection 模式：教练追问，不调 AI 角色，不评分 ──
     if body.mode == "reflection":
+        if not (body.socratic_question or "").strip():
+            raise HTTPException(400, "reflection 模式必须带 socratic_question")
         followup = await coach_followup(
             skill_name=skill.name if skill else "",
-            socratic_question=body.socratic_question or "",
+            socratic_question=body.socratic_question,
             user_reflection=body.user_input,
         )
         new_turn = PracticeTurn(
@@ -251,6 +255,9 @@ async def submit_turn(
         )
         session.add(new_turn)
         session.commit()
+
+        # 反思也是练习活动，更新打卡（不算练习数，只更新连击日期）
+        touch_daily_log(user.id, session)
 
         return TurnResponse(
             turn_number=turn_number,
@@ -337,6 +344,9 @@ async def submit_turn(
     session.add(new_turn)
     session.commit()
 
+    # dialogue turn 触发活跃连击（不加 practice 计数，那个由 complete 加）
+    touch_daily_log(user.id, session)
+
     return TurnResponse(
         turn_number=turn_number,
         ai_message=ai_reply["message"],
@@ -351,6 +361,7 @@ async def submit_turn(
         socratic_question=socratic_result["question"] if socratic_result else None,
         socratic_encouragement=socratic_result["encouragement"] if socratic_result else None,
         coach_followup=None,
+        ai_fallback=bool(ai_reply.get("fallback")),
         well_used=scoring_result.get("well_used", []),
         missing=scoring_result.get("missing", []),
     )
@@ -399,4 +410,8 @@ async def complete_practice(
         progress.level = max(0, (progress.level or 0) - 1)
 
     session.commit()
+
+    # 完成一次练习 → 打卡 + 累计平均分
+    touch_daily_log(user.id, session, practice_completed=True, score=practice.avg_score)
+
     return {"ok": True, "avg_score": practice.avg_score, "skill_level": progress.level}

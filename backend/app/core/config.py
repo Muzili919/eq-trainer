@@ -23,7 +23,13 @@ class Settings(BaseSettings):
     volcengine_tts_cluster: str = "volcano_tts"
     volcengine_tts_voice: str = "BV700_streaming"  # 灿灿
 
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    # 逗号分隔，例 "http://localhost:5173,http://47.108.174.249:8090"
+    # "*" 表示放开（同域部署可用）
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
 settings = Settings()

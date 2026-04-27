@@ -34,18 +34,38 @@ export default function HomePage() {
   const username = getUsername()
   const [data, setData] = useState<HomeSummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const today = new Date()
 
-  useEffect(() => {
+  function loadHome() {
+    setLoading(true); setError(null)
     api.homeSummary()
       .then(d => { setData(d); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [])
+      .catch(err => { setError(err?.message ?? '加载失败'); setLoading(false) })
+  }
+
+  useEffect(() => { loadHome() }, [])
 
   function startBlindBox() {
     if (!data || data.today_blind_box.scenes.length === 0) return
     const first = data.today_blind_box.scenes[0]
     navigate(`/practice/${first.skill_id}`)
+  }
+
+  if (error) {
+    return (
+      <div className="app-shell flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
+        <div className="text-4xl mb-3">📡</div>
+        <p className="font-display text-[15px] mb-1.5 text-ink dark:text-violet-200">加载失败</p>
+        <p className="text-[12px] text-ink-soft dark:text-violet-300/60 mb-5 max-w-xs">{error}</p>
+        <button onClick={loadHome}
+          className="px-6 py-2.5 rounded-2xl font-display text-[12px] tracking-widest text-white
+            bg-gradient-to-r from-violet-500 to-violet-600
+            shadow-[0_8px_20px_-6px_rgba(124,58,237,.5)] active:scale-[.98] transition">
+          重试
+        </button>
+      </div>
+    )
   }
 
   if (loading || !data) {
@@ -73,7 +93,7 @@ export default function HomePage() {
   return (
     <div className="app-shell">
       {/* ============ 顶部状态条 ============ */}
-      <header className="px-5 pt-4 pb-3 flex items-center gap-3 animate-rise">
+      <header className="px-5 pt-4 pb-3 flex items-center gap-3 animate-rise relative z-40">
         <div className="flex items-center gap-2">
           <svg width="30" height="30" viewBox="0 0 40 40">
             <defs>

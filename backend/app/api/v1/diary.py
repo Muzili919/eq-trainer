@@ -1,7 +1,7 @@
 """日记路由 - /api/v1/diary"""
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.core.db import get_session
@@ -9,16 +9,17 @@ from app.models.diary import Diary, DiaryAnalysis
 from app.models.user import User
 from app.services.auth import get_current_user
 from app.services.diary import diagnose_diary
+from app.services.streak import touch_daily_log
 
 router = APIRouter(prefix="/diary", tags=["diary"])
 
 
 class DiaryCreate(BaseModel):
-    context: str
-    other_party: str
-    their_words: str
-    my_response: str
-    outcome: str
+    context: str = Field(max_length=2000)
+    other_party: str = Field(max_length=200)
+    their_words: str = Field(max_length=2000)
+    my_response: str = Field(max_length=2000)
+    outcome: str = Field(max_length=2000)
 
 
 @router.post("")
@@ -60,6 +61,9 @@ async def create_diary(
     session.add(analysis)
     session.commit()
     session.refresh(analysis)
+
+    # 写入日记 → 打卡
+    touch_daily_log(user.id, session, diary_added=True)
 
     return {
         "diary_id": diary.id,
