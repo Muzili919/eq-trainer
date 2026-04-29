@@ -97,8 +97,8 @@ export const api = {
   // Plan / Invite
   getPlan: () => req<{ plan: string; expiresAt: string | null }>('GET', '/api/v1/invite/plan'),
   getUsage: () => req<{ plan: string; limit: number; used: number; remaining: number }>('GET', '/api/v1/invite/usage'),
-  validateInvite: (code: string, userId?: number) =>
-    req<{ valid: boolean; plan?: string; expiresAt?: string }>('POST', '/api/v1/invite/validate', { code, userId }),
+  validateInvite: (code: string) =>
+    req<{ valid: boolean; plan?: string; expiresAt?: string }>('POST', '/api/v1/invite/validate', { code }),
 }
 
 export interface ScenarioSkillTag { id: string; name: string; icon: string }

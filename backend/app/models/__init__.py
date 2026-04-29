@@ -1,4 +1,5 @@
 from app.models.diary import Diary, DiaryAnalysis
+from app.models.invitation import InvitationCode
 from app.models.practice import Practice, PracticeTurn
 from app.models.scenario import ScenarioTemplate
 from app.models.skill import Skill, SkillProgress
@@ -8,6 +9,7 @@ from app.models.user import User
 
 __all__ = [
     "User",
+    "InvitationCode",
     "Skill",
     "SkillProgress",
     "ScenarioTemplate",

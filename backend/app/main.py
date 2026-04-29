@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
-from app.api.v1 import auth, diary, home, practice, scenarios, skills, tts
+from app.api.v1 import auth, diary, home, invite, practice, scenarios, skills, tts
 from app.core.config import settings
 from app.core.db import engine, init_db
 from app.seed.loader import seed_all
@@ -50,6 +50,7 @@ app.include_router(diary.router, prefix="/api/v1")
 app.include_router(home.router, prefix="/api/v1")
 app.include_router(scenarios.router, prefix="/api/v1")
 app.include_router(tts.router, prefix="/api/v1")
+app.include_router(invite.router, prefix="/api/v1")
 
 
 @app.get("/")

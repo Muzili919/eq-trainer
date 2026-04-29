@@ -97,6 +97,25 @@ async def start_practice(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    # Plan 过期检查
+    from app.api.v1.invite import get_effective_plan, FREE_DAILY_PRACTICE_LIMIT
+    plan = get_effective_plan(user, session)
+    if plan != "premium":
+        today = datetime.utcnow().date()
+        today_count = len(
+            session.exec(
+                select(Practice).where(
+                    Practice.user_id == user.id,
+                    Practice.completed_at >= datetime.combine(today, datetime.min.time()),
+                )
+            ).all()
+        )
+        if today_count >= FREE_DAILY_PRACTICE_LIMIT:
+            raise HTTPException(
+                429,
+                f"今日练习次数已达上限（{today_count}/{FREE_DAILY_PRACTICE_LIMIT}），升级 Premium 可无限练习",
+            )
+
     template: ScenarioTemplate | None = None
     diary: Diary | None = None
 

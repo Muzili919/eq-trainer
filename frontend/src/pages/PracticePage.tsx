@@ -2,6 +2,33 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, StartPracticeResp, TurnResp } from '../lib/api'
 
+type SpeechRecognitionConstructor = new () => SpeechRecognition
+
+interface SpeechRecognitionAlternative {
+  transcript: string
+}
+
+interface SpeechRecognitionResult {
+  readonly [index: number]: SpeechRecognitionAlternative
+}
+
+interface SpeechRecognitionEvent {
+  readonly results: {
+    readonly [index: number]: SpeechRecognitionResult
+  }
+}
+
+interface SpeechRecognition {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  onresult: ((event: SpeechRecognitionEvent) => void) | null
+  onend: (() => void) | null
+  onerror: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+
 interface Message {
   from: 'them' | 'me' | 'coach'
   text: string
@@ -95,7 +122,7 @@ function useTTS() {
 }
 
 // ── Speech input hook ─────────────────────────────────────────────────────
-declare global { interface Window { SpeechRecognition: new () => SpeechRecognition; webkitSpeechRecognition: new () => SpeechRecognition } }
+declare global { interface Window { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor } }
 
 function useSpeechInput(onResult: (text: string) => void) {
   const recogRef = useRef<SpeechRecognition | null>(null)
@@ -105,6 +132,7 @@ function useSpeechInput(onResult: (text: string) => void) {
   const startRecording = useCallback(() => {
     if (!supported) { alert('您的浏览器不支持语音识别'); return }
     const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition
+    if (!SR) { alert('您的浏览器不支持语音识别'); return }
     const r = new SR(); r.lang = 'zh-CN'; r.continuous = false; r.interimResults = false
     r.onresult = (e) => { const text = e.results[0]?.[0]?.transcript ?? ''; if (text) onResult(text) }
     r.onend = () => setRecording(false)
@@ -333,7 +361,7 @@ export default function PracticePage() {
   const navigate = useNavigate()
 
   const [scenario, setScenario] = useState<StartPracticeResp | null>(null)
-  const [phase, setPhase] = useState<'loading' | 'intro' | 'chat' | 'reflect'>('loading')
+  const [phase, setPhase] = useState<'loading' | 'intro' | 'chat' | 'reflect' | 'error'>('loading')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -352,15 +380,41 @@ export default function PracticePage() {
   const { recording, supported: voiceSupported, startRecording, stopRecording } =
     useSpeechInput((text) => setInput(prev => prev ? prev + ' ' + text : text))
 
+  // Premium 墙
+  const [showPremiumWall, setShowPremiumWall] = useState(false)
+  const [premiumMsg, setPremiumMsg] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
+  const [redeeming, setRedeeming] = useState(false)
+  const [startError, setStartError] = useState('')
+
   useEffect(() => {
     if (!skillId) return
+    setPhase('loading')
+    setScenario(null)
+    setPracticeId(null)
+    setMessages([])
+    setInput('')
+    setSheet(null)
+    setEnded(false)
+    setTimerActive(false)
+    setShowPremiumWall(false)
+    setStartError('')
+    startingRef.current = false
     api.startPractice(skillId, undefined, templateId, diaryId).then(s => {
       setScenario(s); setPracticeId(s.practice_id); setPhase('intro')
     }).catch((err) => {
       console.error('startPractice failed:', err)
-      setPhase('intro')
+      const msg = err.message || ''
+      if (msg.includes('已达上限') || msg.includes('429')) {
+        setPremiumMsg(msg)
+        setShowPremiumWall(true)
+        setPhase('error')
+      } else {
+        setStartError(msg || '练习启动失败，请稍后再试')
+        setPhase('error')
+      }
     })
-  }, [skillId])
+  }, [skillId, templateId, diaryId])
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
@@ -442,6 +496,84 @@ export default function PracticePage() {
   )
 
   // ── Loading ──
+  // ── Premium 墙 ──
+  if (showPremiumWall) return (
+    <div className="min-h-screen flex items-center justify-center px-5">
+      <div className="w-full max-w-[400px] bg-white dark:bg-gray-900 rounded-3xl shadow-xl p-6 space-y-4 border border-violet-200 dark:border-violet-800">
+        <div className="text-center">
+          <div className="text-5xl mb-3">👑</div>
+          <h2 className="text-xl font-bold text-violet-700 dark:text-violet-300">升级 Premium</h2>
+          <p className="text-sm text-gray-500 mt-2">{premiumMsg}</p>
+        </div>
+        <div className="bg-violet-50 dark:bg-violet-900/30 rounded-2xl p-4 space-y-2">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Premium 权益：</p>
+          <div className="space-y-1.5 text-sm">
+            <p>🤖 每日练习无限次</p>
+            <p>🧠 苏格拉底深度反思</p>
+            <p>📊 AI 多维评分分析</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+            placeholder="输入邀请码"
+            maxLength={16}
+            className="flex-1 border border-violet-200 dark:border-violet-700 rounded-xl px-3 py-2.5 text-sm text-center font-mono uppercase focus:outline-none focus:border-violet-400 bg-white dark:bg-gray-800"
+          />
+          <button
+            onClick={async () => {
+              setRedeeming(true)
+              try {
+                const res = await api.validateInvite(inviteCode)
+                if (res.valid) {
+                  setShowPremiumWall(false)
+                  window.location.reload()
+                }
+              } catch (err: any) {
+                setPremiumMsg(err.message || '邀请码无效')
+              }
+              setRedeeming(false)
+            }}
+            disabled={redeeming || !inviteCode.trim()}
+            className="px-5 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:bg-gray-300 text-white text-sm font-bold"
+          >
+            {redeeming ? '...' : '兑换'}
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 text-center">获取邀请码：微信 muzli919 或爱发电赞助</p>
+        <button onClick={() => navigate(-1)} className="w-full text-sm text-gray-400 hover:text-gray-600 py-2">
+          ← 返回
+        </button>
+      </div>
+    </div>
+  )
+
+  if (phase === 'error') return (
+    <div className="min-h-screen flex items-center justify-center px-5">
+      <div className="w-full max-w-[400px] bg-white dark:bg-gray-900 rounded-3xl shadow-xl p-6 space-y-4 border border-violet-200 dark:border-violet-800 text-center">
+        <div className="text-4xl mb-2">!</div>
+        <h2 className="text-lg font-bold text-violet-700 dark:text-violet-300">练习启动失败</h2>
+        <p className="text-sm text-gray-500">{startError || '请稍后再试'}</p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex-1 py-2.5 rounded-xl border border-violet-200 dark:border-violet-700 text-sm text-gray-500"
+          >
+            返回
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            className="flex-1 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-600 text-white text-sm font-bold"
+          >
+            重试
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   if (phase === 'loading') return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center space-y-3">

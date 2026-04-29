@@ -8,7 +8,27 @@ engine = create_engine(settings.database_url, echo=settings.debug, connect_args=
 
 def init_db() -> None:
     SQLModel.metadata.create_all(engine)
+    _migrate_user_plan_columns()
     _migrate_nullable_columns()
+
+
+def _migrate_user_plan_columns() -> None:
+    """Backfill plan columns for existing SQLite deployments."""
+    from sqlalchemy import inspect, text
+
+    with engine.connect() as conn:
+        try:
+            insp = inspect(engine)
+            cols = {c["name"] for c in insp.get_columns("user")}
+            if "plan" not in cols:
+                conn.execute(text("ALTER TABLE user ADD COLUMN plan VARCHAR NOT NULL DEFAULT 'free'"))
+                print("[migrate] user.plan added ✓")
+            if "plan_expires_at" not in cols:
+                conn.execute(text("ALTER TABLE user ADD COLUMN plan_expires_at DATETIME"))
+                print("[migrate] user.plan_expires_at added ✓")
+            conn.commit()
+        except Exception as e:
+            print(f"[migrate] skipped user plan columns: {e}")
 
 
 def _migrate_nullable_columns() -> None:
