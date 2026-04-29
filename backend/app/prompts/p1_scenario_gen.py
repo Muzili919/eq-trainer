@@ -49,7 +49,7 @@ USER_TEMPLATE = """生成一道 {difficulty}/5 难度的对话练习场景，重
 {{
   "title": "一句话场景标题",
   "scenario_setup": "2-3 句话描述场景背景（给用户读的）",
-  "role_brief": "你（AI）扮演的角色画像：身份/关系/此刻心情/你在这个场景中做了什么（必须与 scenario_setup 的立场一致）",
+  "role_brief": "你（AI）扮演的角色画像：身份/关系/此刻心情/你的核心诉求（你必须坚持什么）/你在这个场景中做了什么（必须与 scenario_setup 的立场一致）",
   "initial_message": "对方开口的第一句话（这是对话起点）",
   "ai_emotion": "neutral|annoyed|sarcastic|playful|sad|expectant",
   "category": "work|friend|family|stranger|date|online"
