@@ -18,6 +18,12 @@ const STYLE_NAMES: Record<string, string> = {
   sabeining: '撒贝宁', dongqing: '董卿', wanghan: '汪涵', madong: '马东',
 }
 
+const EMOTION_LABELS: Record<string, string> = {
+  neutral: '平静', annoyed: '不爽', sarcastic: '阴阳怪气',
+  playful: '调侃', sad: '低落', expectant: '期待',
+  warmed_up: '缓和', surprised: '惊讶',
+}
+
 function speedLabel(ms: number): { icon: string; label: string; color: string } {
   const s = ms / 1000
   if (s < 3)   return { icon: '⚡', label: `${s.toFixed(1)}s 抢答`, color: 'text-amber-500' }
@@ -398,7 +404,7 @@ export default function PracticePage() {
                 {msg.emotion && (
                   <div className="flex items-center gap-2 text-[11px] text-ink-soft dark:text-violet-300/60 pl-1">
                     <span className="w-5 h-5 rounded-full bg-ink/80 dark:bg-night-card flex items-center justify-center text-white font-display text-[9px]">AI</span>
-                    <span className="px-2 py-0.5 rounded-full bg-ember-500/12 text-ember-600 dark:text-ember-300 font-display text-[10px]">{msg.emotion}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-ember-500/12 text-ember-600 dark:text-ember-300 font-display text-[10px]">{EMOTION_LABELS[msg.emotion] ?? msg.emotion}</span>
                   </div>
                 )}
                 <div className="bubble-them">{msg.text}</div>

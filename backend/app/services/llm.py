@@ -5,6 +5,7 @@ import logging
 import re
 from typing import Any
 
+import httpx
 from openai import AsyncOpenAI, OpenAI
 
 from app.core.config import settings
@@ -12,6 +13,7 @@ from app.core.config import settings
 log = logging.getLogger(__name__)
 
 MAX_RETRIES = 2
+LLM_TIMEOUT = 60.0  # 秒，单次 API 调用超时
 
 
 class LLMClient:
@@ -21,6 +23,7 @@ class LLMClient:
         self._client = OpenAI(
             api_key=settings.deepseek_api_key,
             base_url=settings.deepseek_base_url,
+            timeout=LLM_TIMEOUT,
         )
 
     def chat_json(self, system: str, user: str, temperature: float = 0.7) -> dict[str, Any]:
@@ -71,6 +74,8 @@ class AsyncLLMClient:
         self._client = AsyncOpenAI(
             api_key=settings.deepseek_api_key,
             base_url=settings.deepseek_base_url,
+            timeout=LLM_TIMEOUT,
+            http_client=httpx.AsyncClient(timeout=LLM_TIMEOUT),
         )
 
     async def chat_json(self, system: str, user: str, temperature: float = 0.7) -> dict[str, Any]:

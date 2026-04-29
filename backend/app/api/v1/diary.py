@@ -1,5 +1,7 @@
 """日记路由 - /api/v1/diary"""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
@@ -11,15 +13,17 @@ from app.services.auth import get_current_user
 from app.services.diary import diagnose_diary
 from app.services.streak import touch_daily_log
 
+log = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/diary", tags=["diary"])
 
 
 class DiaryCreate(BaseModel):
     mode: str = "react"  # "react" 对方先说 / "initiate" 我开口
-    context: str = Field(max_length=2000)
+    context: str = Field(default="", max_length=2000)
     other_party: str = Field(default="", max_length=200)
     their_words: str = Field(default="", max_length=2000)  # initiate 可空
-    my_response: str = Field(max_length=2000)
+    my_response: str = Field(default="", max_length=2000)
     outcome: str = Field(default="", max_length=2000)
 
 
@@ -43,17 +47,29 @@ async def create_diary(
     session.commit()
     session.refresh(diary)
 
-    result = await diagnose_diary(
-        mode=mode,
-        context=body.context,
-        other_party=body.other_party,
-        their_words=body.their_words,
-        my_response=body.my_response,
-        outcome=body.outcome,
-        session=session,
-    )
-
+    # 调用 AI 诊断，带兜底
     import json
+    try:
+        result = await diagnose_diary(
+            mode=mode,
+            context=body.context,
+            other_party=body.other_party,
+            their_words=body.their_words,
+            my_response=body.my_response,
+            outcome=body.outcome,
+            session=session,
+        )
+    except Exception as e:
+        log.error("diagnose_diary failed for diary %d: %s", diary.id, e)
+        # AI 诊断失败，返回一个基本结果，不 500
+        result = {
+            "identified_skills": [],
+            "diagnosis_brief": "AI 诊断暂时出了点问题，请稍后再试。",
+            "socratic_questions": [],
+            "rewrite_suggestion_hidden": "",
+            "referenced_style": "none",
+        }
+
     analysis = DiaryAnalysis(
         diary_id=diary.id,
         identified_skills=json.dumps(result["identified_skills"], ensure_ascii=False),
@@ -109,7 +125,7 @@ def list_diaries(
     return [
         {
             "id": d.id,
-            "context": d.context[:50] + "..." if len(d.context) > 50 else d.context,
+            "context": (d.context[:50] + "..." if len(d.context) > 50 else d.context) if d.context else "",
             "created_at": d.created_at.isoformat() if d.created_at else None,
         }
         for d in diaries

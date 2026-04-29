@@ -20,6 +20,9 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
       window.location.href = '/login'
       throw new Error('登录已过期')
     }
+    if (res.status === 502 || res.status === 504) {
+      throw new Error('服务器响应超时，请稍后再试')
+    }
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail ?? '请求失败')
   }

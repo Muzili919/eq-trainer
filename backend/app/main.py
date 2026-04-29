@@ -1,13 +1,17 @@
 from contextlib import asynccontextmanager
+import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
 from app.api.v1 import auth, diary, home, practice, scenarios, skills, tts
 from app.core.config import settings
 from app.core.db import engine, init_db
 from app.seed.loader import seed_all
+
+log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -20,6 +24,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+
+# 全局异常处理 —— 避免 AI 超时/错误导致裸 500
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    log.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "服务暂时出了点问题，请稍后再试"},
+    )
 
 app.add_middleware(
     CORSMiddleware,
