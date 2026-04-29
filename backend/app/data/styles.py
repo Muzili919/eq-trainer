@@ -162,7 +162,7 @@ def build_style_rewrite_block(target_styles: list[str]) -> str:
         name = style["name"]
         parts.append(
             f'  {{ "style": "{sid}", "style_name": "{name}", '
-            f'"text": "该风格的改写版本", '
+            f'"text": "假设是{name}本人，遇到对方那句话和当前场景，他独立会说的一句话（1-2句口语，不是改用户的回应）", '
             f'"techniques": ["用到的手法1", "手法2"], '
             f'"technique_breakdown": "手法1（怎么用的）→ 手法2（怎么用的）" }}'
         )

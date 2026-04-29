@@ -147,6 +147,7 @@ export interface ReflectResp {
   coach_reply: string; is_complete: boolean; technique_hint: string | null;
 }
 export interface DiaryInput {
+  mode?: 'react' | 'initiate';
   context: string; other_party: string; their_words: string; my_response: string; outcome: string;
 }
 export interface DiaryResp {

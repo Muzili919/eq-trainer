@@ -556,19 +556,39 @@ export default function PracticePage() {
               </div>
             )}
 
-            {/* Multi-style rewrites */}
+            {/* 三个风格人物的独立参考答案 */}
             {sheet.resp.rewrite_suggestions && sheet.resp.rewrite_suggestions.length > 0 && (
               <div className="mb-3 space-y-2">
-                <div className="text-[10px] font-mono tracking-widest text-violet-500">风格对比改写</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[14px]">💭</span>
+                  <span className="text-[12px] font-display tracking-wide text-violet-600 dark:text-violet-300">
+                    换三种人会怎么说
+                  </span>
+                  <span className="text-[10px] text-ink-soft/60 dark:text-violet-300/40">独立答案 · 不是改你的话</span>
+                </div>
                 {sheet.resp.rewrite_suggestions.map((rw, i) => (
-                  <div key={i} className="p-3 rounded-xl border border-violet-500/15 space-y-1">
-                    <div className="flex items-center gap-2 text-[11px]">
-                      <span className="font-display text-violet-600 dark:text-violet-300">{rw.style_name}路线</span>
-                      <span className="text-ink-soft dark:text-violet-300/50 text-[10px]">{rw.techniques?.join(' · ')}</span>
+                  <div key={i} className="p-3 rounded-2xl border-2 border-violet-500/15 bg-violet-500/[0.03] dark:bg-violet-500/[0.06] space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-full bg-violet-500 text-white text-[11px] font-display tracking-wide shrink-0">
+                        {rw.style_name}
+                      </span>
+                      {rw.techniques && rw.techniques.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {rw.techniques.map((t, j) => (
+                            <span key={j} className="text-[10px] px-1.5 py-0.5 rounded-md bg-ember-500/10 text-ember-600 dark:text-ember-300 font-mono">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <p className="text-[12.5px] leading-relaxed italic">{rw.text}</p>
+                    <p className="text-[13.5px] leading-relaxed text-ink dark:text-violet-200 pl-1">
+                      "{rw.text}"
+                    </p>
                     {rw.technique_breakdown && (
-                      <p className="text-[10.5px] text-ink-soft dark:text-violet-300/60">{rw.technique_breakdown}</p>
+                      <p className="text-[10.5px] text-ink-soft dark:text-violet-300/55 leading-relaxed pl-1 italic">
+                        💡 {rw.technique_breakdown}
+                      </p>
                     )}
                   </div>
                 ))}

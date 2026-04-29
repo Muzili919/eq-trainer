@@ -15,11 +15,12 @@ router = APIRouter(prefix="/diary", tags=["diary"])
 
 
 class DiaryCreate(BaseModel):
+    mode: str = "react"  # "react" 对方先说 / "initiate" 我开口
     context: str = Field(max_length=2000)
-    other_party: str = Field(max_length=200)
-    their_words: str = Field(max_length=2000)
+    other_party: str = Field(default="", max_length=200)
+    their_words: str = Field(default="", max_length=2000)  # initiate 可空
     my_response: str = Field(max_length=2000)
-    outcome: str = Field(max_length=2000)
+    outcome: str = Field(default="", max_length=2000)
 
 
 @router.post("")
@@ -28,19 +29,22 @@ async def create_diary(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    mode = body.mode if body.mode in ("react", "initiate") else "react"
     diary = Diary(
         user_id=user.id,
+        mode=mode,
         context=body.context,
-        other_party=body.other_party,
-        their_words=body.their_words,
+        other_party=body.other_party or None,
+        their_words=body.their_words or None,
         my_response=body.my_response,
-        outcome=body.outcome,
+        outcome=body.outcome or None,
     )
     session.add(diary)
     session.commit()
     session.refresh(diary)
 
     result = await diagnose_diary(
+        mode=mode,
         context=body.context,
         other_party=body.other_party,
         their_words=body.their_words,

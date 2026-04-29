@@ -22,11 +22,15 @@ async def diagnose_diary(
     my_response: str,
     outcome: str,
     session: Session,
+    mode: str = "react",
 ) -> dict:
     """
     返回诊断结果：
     { identified_skills, diagnosis_brief, socratic_questions,
       rewrite_suggestion_hidden, referenced_style }
+
+    mode="react"：对方说 X，我回 Y → 评估"应对"（默认）
+    mode="initiate"：我打算找 X 聊 Y → 评估"开口"
     """
     llm = get_async_llm()
     skills_json = _build_skills_json(session)
@@ -37,6 +41,7 @@ async def diagnose_diary(
         my_response=my_response,
         outcome=outcome,
         skills_json=skills_json,
+        mode=mode,
     )
     result = await llm.chat_json(sys_p, usr_p, temperature=0.5)
     return {

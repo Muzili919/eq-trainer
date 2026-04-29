@@ -132,12 +132,20 @@ async def start_practice(
             select(DiaryAnalysis).where(DiaryAnalysis.diary_id == body.diary_id)
         ).first()
         diagnosis = analysis.diagnosis_brief if analysis else ""
+        # initiate 模式（我开口）：对方还没说话，给一个等待的开场提示
+        # react 模式（旧）：对方说了 their_words 我回应
+        if diary.mode == "initiate":
+            opener = f"（{diary.other_party or '对方'}抬头看了你一眼，等你开口）"
+            initial_emotion = "neutral"
+        else:
+            opener = diary.their_words or "（你好）"
+            initial_emotion = "annoyed"
         scenario = {
             "title": f"真实场景：{diary.other_party or '对方'}",
             "scenario_setup": f"{diary.context}\n\n{diagnosis}".strip(),
             "role_brief": diary.other_party or "对方",
-            "initial_message": diary.their_words,
-            "ai_emotion": "annoyed",
+            "initial_message": opener,
+            "ai_emotion": initial_emotion,
             "category": "diary",
         }
     elif template:

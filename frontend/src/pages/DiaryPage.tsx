@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { api, DiaryResp } from '../lib/api'
 
 type Step = 'form' | 'loading' | 'result'
+type Mode = 'react' | 'initiate'
 
 export default function DiaryPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('form')
+  const [mode, setMode] = useState<Mode>('react')
   const [form, setForm] = useState({ context: '', other_party: '', their_words: '', my_response: '', outcome: '' })
   const [result, setResult] = useState<DiaryResp | null>(null)
   const [rewrite, setRewrite] = useState<string | null>(null)
@@ -15,18 +17,26 @@ export default function DiaryPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.their_words.trim() || !form.my_response.trim()) {
-      setError('至少填写"对方说了什么"和"你是怎么回的"')
-      return
+    if (mode === 'react') {
+      if (!form.their_words.trim() || !form.my_response.trim()) {
+        setError('至少填写"对方说了什么"和"你是怎么回的"')
+        return
+      }
+    } else {
+      if (!form.my_response.trim()) {
+        setError('请填写"你打算这么开口"')
+        return
+      }
     }
     setStep('loading')
     try {
       const res = await api.createDiary({
-        context: form.context || '日常对话',
+        mode,
+        context: form.context || (mode === 'initiate' ? '主动开口' : '日常对话'),
         other_party: form.other_party || '对方',
-        their_words: form.their_words,
+        their_words: mode === 'react' ? form.their_words : '',
         my_response: form.my_response,
-        outcome: form.outcome || '未记录',
+        outcome: form.outcome || (mode === 'initiate' ? '（还没说）' : '未记录'),
       })
       setResult(res)
       setStep('result')
@@ -59,15 +69,61 @@ export default function DiaryPage() {
 
       {step === 'form' && (
         <form onSubmit={submit} className="px-5 space-y-4 pb-6 animate-rise">
-          <Field label="场景背景（可选）" placeholder="在哪里发生的？什么情况？" value={form.context} onChange={v => setForm(f => ({...f, context: v}))} />
-          <Field label="对方是谁（可选）" placeholder="朋友、同事、家人…" value={form.other_party} onChange={v => setForm(f => ({...f, other_party: v}))} />
-          <Field label="对方说了什么 *" placeholder="把对方原话（或大意）写下来" value={form.their_words} onChange={v => setForm(f => ({...f, their_words: v}))} multiline />
-          <Field label="你是怎么回的 *" placeholder="你当时说了什么" value={form.my_response} onChange={v => setForm(f => ({...f, my_response: v}))} multiline />
-          <Field label="结果如何（可选）" placeholder="气氛怎么了？对方什么反应？" value={form.outcome} onChange={v => setForm(f => ({...f, outcome: v}))} />
+          {/* 模式切换 */}
+          <div className="flex gap-2 p-1 rounded-xl bg-violet-500/8 dark:bg-violet-500/10">
+            {(['react', 'initiate'] as Mode[]).map(m => (
+              <button key={m} type="button"
+                onClick={() => { setMode(m); setError('') }}
+                className={`flex-1 py-2 rounded-lg font-display text-[12px] tracking-widest transition-all
+                  ${mode === m ? 'bg-white dark:bg-night-card shadow text-violet-600 dark:text-violet-300' : 'text-ink-soft dark:text-violet-300/60'}`}>
+                {m === 'react' ? '🛡️ 我应对' : '🗣️ 我开口'}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11.5px] text-ink-soft/80 dark:text-violet-300/55 -mt-1 px-1">
+            {mode === 'react'
+              ? '对方先说了什么，我当时怎么回的——事后复盘'
+              : '我要主动找谁聊一件事——事前预演开场'}
+          </p>
+
+          <Field
+            label={mode === 'react' ? '场景背景（可选）' : '我要找谁聊什么 *'}
+            placeholder={mode === 'react' ? '在哪里发生的？什么情况？' : '例：周一找老板提涨工资'}
+            value={form.context}
+            onChange={v => setForm(f => ({...f, context: v}))}
+          />
+          <Field
+            label={mode === 'react' ? '对方是谁（可选）' : '对方是（可选）'}
+            placeholder={mode === 'react' ? '朋友、同事、家人…' : '例：陈总 / 老婆 / 儿子'}
+            value={form.other_party}
+            onChange={v => setForm(f => ({...f, other_party: v}))}
+          />
+          {mode === 'react' && (
+            <Field
+              label="对方说了什么 *"
+              placeholder="把对方原话（或大意）写下来"
+              value={form.their_words}
+              onChange={v => setForm(f => ({...f, their_words: v}))}
+              multiline
+            />
+          )}
+          <Field
+            label={mode === 'react' ? '你是怎么回的 *' : '你打算这么开口 *'}
+            placeholder={mode === 'react' ? '你当时说了什么' : '把你打算说的第一句话写出来——星海帮你提前想周全'}
+            value={form.my_response}
+            onChange={v => setForm(f => ({...f, my_response: v}))}
+            multiline
+          />
+          <Field
+            label={mode === 'react' ? '结果如何（可选）' : '你期望什么结果（可选）'}
+            placeholder={mode === 'react' ? '气氛怎么了？对方什么反应？' : '例：希望他考虑下个月加 2k'}
+            value={form.outcome}
+            onChange={v => setForm(f => ({...f, outcome: v}))}
+          />
           {error && <p className="text-[12px] text-ember-600 dark:text-ember-300">{error}</p>}
           <button type="submit"
             className="w-full py-3.5 rounded-2xl font-display text-[13px] tracking-widest bg-gradient-to-r from-violet-500 to-violet-600 text-white shadow-[0_8px_20px_-6px_rgba(124,58,237,.5)] active:scale-[.98] transition-transform">
-            提交给星海复盘
+            {mode === 'react' ? '提交给星海复盘' : '让星海帮我预演这场对话'}
           </button>
         </form>
       )}
