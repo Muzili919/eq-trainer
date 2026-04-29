@@ -140,10 +140,26 @@ async def start_practice(
         else:
             opener = diary.their_words or "（你好）"
             initial_emotion = "annoyed"
+        # 构建 role_brief：从日记信息推断对方的立场和诉求
+        other_name = diary.other_party or "对方"
+        if diary.mode == "initiate":
+            # 我主动开口 → 对方是被动的，但有自己的态度
+            role_brief = (
+                f"你是{other_name}。{diary.context} "
+                f"此刻{other_name}正在面对你，你不知道对方要说什么，"
+                f"但你有自己的立场和顾虑。你是真实的人，有自己的想法，不会被轻易说服。"
+            )
+        else:
+            # 对方先说 → 对方有明确的诉求/态度
+            role_brief = (
+                f"你是{other_name}。{diary.context} "
+                f"你说了「{diary.their_words}」，这说明你有明确的态度和诉求。"
+                f"你需要坚持自己的立场，不会因为对方一两句话就轻易改变想法。"
+            )
         scenario = {
-            "title": f"真实场景：{diary.other_party or '对方'}",
+            "title": f"真实场景：{other_name}",
             "scenario_setup": f"{diary.context}\n\n{diagnosis}".strip(),
-            "role_brief": diary.other_party or "对方",
+            "role_brief": role_brief,
             "initial_message": opener,
             "ai_emotion": initial_emotion,
             "category": "diary",
