@@ -497,6 +497,9 @@ export default function PracticePage() {
           <div className="text-[10px] font-mono text-ink-soft dark:text-violet-300/60 tracking-widest">{skillId}</div>
         </div>
         {timerActive && !ended && <CountdownRing elapsed={elapsed} />}
+        {!ended && (
+          <button onClick={() => setEnded(true)} className="px-3 py-1.5 rounded-xl font-display text-[11px] tracking-widest text-ink-soft dark:text-violet-300/60 border border-violet-500/20 hover:border-violet-500/40 transition-colors">结束</button>
+        )}
         {ended && (
           <button onClick={finish} className="px-3 py-1.5 rounded-xl font-display text-[11px] tracking-widest bg-gradient-to-r from-violet-500 to-violet-600 text-white">完成</button>
         )}
