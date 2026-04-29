@@ -28,6 +28,7 @@ async def score_response(
     skills_compact_list: str,
     humor_weight: float = 0.30,
     target_styles: list[str] | None = None,
+    turn_number: int = 1,
 ) -> dict:
     try:
         llm = get_async_llm()
@@ -38,6 +39,7 @@ async def score_response(
             target_skill=target_skill,
             style_references=style_references,
             target_styles=target_styles,
+            turn_number=turn_number,
         )
         p6_sys, p6_usr = p6_skill_identify.build(
             their_words=their_words,

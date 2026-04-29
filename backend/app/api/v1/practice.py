@@ -339,6 +339,7 @@ async def submit_turn(
             skills_compact_list=skills_compact,
             humor_weight=user.humor_weight or 0.30,
             target_styles=user_styles,
+            turn_number=turn_number,
         ),
         get_ai_reply(
             role_brief=practice.role_brief or "",
