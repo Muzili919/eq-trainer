@@ -140,7 +140,111 @@ function CountdownRing({ elapsed, limit = 30 }: { elapsed: number; limit?: numbe
   )
 }
 
-// ── Socratic mini-chat in sheet ────────────────────────────────────────────
+// ── Reflect page (独立全屏反思页面) ─────────────────────────────────────
+interface SocraticMsg { from: 'coach' | 'user'; text: string }
+
+function ReflectPage({ question, encouragement, practiceId, onBack }: {
+  question: string; encouragement: string; practiceId: number;
+  onBack: () => void;
+}) {
+  const [msgs, setMsgs] = useState<SocraticMsg[]>([
+    { from: 'coach', text: question + (encouragement ? ` ${encouragement}` : '') }
+  ])
+  const [input, setInput] = useState('')
+  const [sending, setSending] = useState(false)
+  const [done, setDone] = useState(false)
+  const roundRef = useRef(1)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs])
+
+  async function submit() {
+    const text = input.trim()
+    if (!text || sending) return
+    setSending(true); setInput('')
+    setMsgs(m => [...m, { from: 'user', text }])
+    try {
+      const resp = await api.reflect(practiceId, text, question, roundRef.current)
+      roundRef.current++
+      setMsgs(m => [...m, { from: 'coach', text: resp.coach_reply }])
+      if (resp.is_complete) setDone(true)
+    } catch {
+      setMsgs(m => [...m, { from: 'coach', text: '出了点问题，直接继续对话吧' }])
+      setDone(true)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-amber-50 to-violet-50 dark:from-[#0f0b1e] dark:to-[#100b1a]">
+      {/* 顶栏 */}
+      <div className="shrink-0 border-b border-amber-500/10 px-4 py-3 flex items-center gap-3 max-w-[480px] mx-auto w-full">
+        <button onClick={onBack} className="icon-btn w-8 h-8">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="font-display text-[13px] tracking-wide text-amber-600 dark:text-amber-300">💡 教练反思时间</div>
+          <div className="text-[10px] text-ink-soft dark:text-violet-300/60">想想怎么回应更好</div>
+        </div>
+      </div>
+
+      {/* 对话区 */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 max-w-[480px] mx-auto w-full space-y-3">
+        {msgs.map((m, i) => (
+          <div key={i} className={`flex ${m.from === 'user' ? 'justify-end' : 'justify-start'} animate-rise`}>
+            <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
+              m.from === 'coach'
+                ? 'bg-amber-500/8 dark:bg-amber-500/10 border border-amber-500/15 text-[14px] leading-relaxed'
+                : 'bg-violet-500/10 dark:bg-violet-500/12 text-[14px] leading-relaxed text-violet-700 dark:text-violet-200'
+            }`}>
+              {m.from === 'coach' && <span className="text-[11px] font-display text-amber-600 dark:text-amber-300 block mb-1">💡 教练</span>}
+              {m.text}
+            </div>
+          </div>
+        ))}
+        {sending && (
+          <div className="flex gap-1 items-center pl-4">
+            {[0,1,2].map(i => (
+              <span key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/40 animate-wave-jump" style={{ animationDelay: `${i * .15}s` }} />
+            ))}
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* 输入区 */}
+      <div className="shrink-0 border-t border-amber-500/10 bg-white/80 dark:bg-[#0f0b1e]/80 backdrop-blur-lg px-4 py-3 max-w-[480px] mx-auto w-full">
+        {!done ? (
+          <div className="flex gap-2">
+            <textarea
+              className="text-input resize-none flex-1 text-[14px] py-2.5"
+              placeholder="写写你的想法…"
+              rows={1}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }}
+              autoFocus
+            />
+            <button onClick={submit} disabled={!input.trim() || sending}
+              className="px-4 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-300 text-[12px] font-display tracking-widest disabled:opacity-40 active:scale-95 transition-transform">
+              发送
+            </button>
+          </div>
+        ) : (
+          <div className="text-center text-[12px] text-amber-600 dark:text-amber-300 mb-2 font-display">反思完成 👏</div>
+        )}
+        <button onClick={onBack}
+          className="w-full py-3 rounded-2xl font-display text-[13px] tracking-widest text-white
+            shadow-[0_8px_20px_-6px_rgba(124,58,237,.5)] bg-gradient-to-r from-violet-500 to-violet-600 active:scale-[.98] transition-transform">
+          {done ? '继续对话 →' : '跳过，继续对话 →'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Socratic mini-chat (保留兼容，但不再在 sheet 中使用) ─────────────────
 interface SocraticMsg { from: 'coach' | 'user'; text: string }
 
 function SocraticPanel({ question, encouragement, practiceId, onComplete }: {
@@ -229,7 +333,7 @@ export default function PracticePage() {
   const navigate = useNavigate()
 
   const [scenario, setScenario] = useState<StartPracticeResp | null>(null)
-  const [phase, setPhase] = useState<'loading' | 'intro' | 'chat'>('loading')
+  const [phase, setPhase] = useState<'loading' | 'intro' | 'chat' | 'reflect'>('loading')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -237,6 +341,7 @@ export default function PracticePage() {
   const [practiceId, setPracticeId] = useState<number | null>(null)
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('voice')
   const [sheet, setSheet] = useState<{ resp: TurnResp; responseMs: number } | null>(null)
+  const [socraticData, setSocraticData] = useState<{ question: string; encouragement: string } | null>(null)
 
   const [timerActive, setTimerActive] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -325,6 +430,16 @@ export default function PracticePage() {
     if (!practiceId) return
     try { await api.completePractice(practiceId) } finally { navigate('/', { replace: true }) }
   }
+
+  // ── Reflect (苏格拉底反思独立页面) ──
+  if (phase === 'reflect' && socraticData && practiceId) return (
+    <ReflectPage
+      question={socraticData.question}
+      encouragement={socraticData.encouragement}
+      practiceId={practiceId}
+      onBack={() => { setSocraticData(null); setPhase('chat'); if (!ended) setTimeout(() => setTimerActive(true), 400) }}
+    />
+  )
 
   // ── Loading ──
   if (phase === 'loading') return (
@@ -502,7 +617,7 @@ export default function PracticePage() {
       {/* Score sheet */}
       {sheet && (
         <div className="scrim" onClick={closeSheet}>
-          <div className="sheet" onClick={e => e.stopPropagation()}>
+          <div className="sheet" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
             {sheet.resp.narrative && (
               <div className="mb-4 p-4 rounded-xl bg-gradient-to-br from-violet-500/8 to-ember-500/8 dark:from-violet-500/12 dark:to-ember-500/12">
                 <p className="text-[14px] leading-relaxed">{sheet.resp.narrative}</p>
@@ -609,24 +724,26 @@ export default function PracticePage() {
               </div>
             )}
 
-            {/* Socratic panel */}
-            {sheet.resp.socratic_question && practiceId && (
-              <SocraticPanel
-                question={sheet.resp.socratic_question}
-                encouragement={sheet.resp.socratic_encouragement ?? ''}
-                practiceId={practiceId}
-                onComplete={closeSheet}
-              />
-            )}
-
-            {/* Close button (when no socratic) */}
-            {!sheet.resp.socratic_question && (
-              <button onClick={closeSheet}
-                className="w-full mt-1 py-3 rounded-2xl font-display text-[12px] tracking-widest text-white
-                  shadow-[0_8px_20px_-6px_rgba(124,58,237,.5)] bg-gradient-to-r from-violet-500 to-violet-600">
-                继续对话
+            {/* Socratic reflection button */}
+            {sheet.resp.socratic_question && (
+              <button onClick={() => {
+                setSocraticData({ question: sheet.resp.socratic_question!, encouragement: sheet.resp.socratic_encouragement ?? '' })
+                setSheet(null)
+                setPhase('reflect')
+              }}
+                className="w-full mt-2 py-3 rounded-2xl font-display text-[13px] tracking-widest
+                  bg-gradient-to-r from-amber-500/15 to-amber-600/15 text-amber-700 dark:text-amber-300
+                  border border-amber-500/30 active:scale-[.98] transition-transform">
+                💡 教练反思时间
               </button>
             )}
+
+            {/* Close button */}
+            <button onClick={closeSheet}
+              className="w-full mt-1 py-3 rounded-2xl font-display text-[12px] tracking-widest text-white
+                shadow-[0_8px_20px_-6px_rgba(124,58,237,.5)] bg-gradient-to-r from-violet-500 to-violet-600">
+              {sheet.resp.socratic_question ? '跳过，继续对话' : '继续对话'}
+            </button>
           </div>
         </div>
       )}
