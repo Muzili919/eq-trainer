@@ -19,11 +19,12 @@ const DIFFICULTY_DOTS = (n: number) => '●'.repeat(n) + '○'.repeat(5 - n)
 const ROLE_LABEL: Record<string, string> = {
   decoration_boss: '装修老板',
   property_manager: '物业经理',
+  beauty_clinic_boss: '医美老板',
   general: '通用',
   all: '全部',
 }
 
-type FilterRole = 'auto' | 'all' | 'decoration_boss' | 'property_manager' | 'general'
+type FilterRole = 'auto' | 'all' | 'decoration_boss' | 'property_manager' | 'beauty_clinic_boss' | 'general'
 
 export default function ScenariosPage() {
   const navigate = useNavigate()
@@ -83,7 +84,7 @@ export default function ScenariosPage() {
       <section className="px-5 mt-2 animate-rise" style={{ animationDelay: '.05s' }}>
         <p className="text-[10px] text-ink-soft/70 dark:text-violet-300/40 font-mono tracking-widest mb-2">ROLE · 角色</p>
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5">
-          {(['auto', 'decoration_boss', 'property_manager', 'general', 'all'] as FilterRole[]).map(r => {
+          {(['auto', 'decoration_boss', 'property_manager', 'beauty_clinic_boss', 'general', 'all'] as FilterRole[]).map(r => {
             const active = activeRole === r
             const label = r === 'auto' ? `我的（${ROLE_LABEL[resolvedRole] || '加载中'}）` : ROLE_LABEL[r]
             return (
