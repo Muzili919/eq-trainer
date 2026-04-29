@@ -13,16 +13,41 @@ const STAGE_HINT: Record<string, string> = {
 
 const STYLE_DOT: Record<string, string> = {
   huangbo: 'bg-violet-500',
+  hejiong: 'bg-amber-400',
+  caikangyong: 'bg-sky-500',
+  jialing: 'bg-yellow-400',
+  sabeining: 'bg-blue-500',
+  dongqing: 'bg-rose-400',
+  wanghan: 'bg-emerald-500',
+  madong: 'bg-orange-500',
+  // 旧兼容
   xuzhisheng: 'bg-ember-500',
   lixueqin: 'bg-ink',
-  hejiong: 'bg-violet-500/40',
 }
 
 const STYLE_BAR: Record<string, string> = {
   huangbo: 'bg-gradient-to-r from-violet-500 to-violet-600',
+  hejiong: 'bg-gradient-to-r from-amber-400 to-amber-500',
+  caikangyong: 'bg-gradient-to-r from-sky-500 to-sky-600',
+  jialing: 'bg-gradient-to-r from-yellow-400 to-yellow-500',
+  sabeining: 'bg-gradient-to-r from-blue-500 to-blue-600',
+  dongqing: 'bg-gradient-to-r from-rose-400 to-rose-500',
+  wanghan: 'bg-gradient-to-r from-emerald-500 to-emerald-600',
+  madong: 'bg-gradient-to-r from-orange-500 to-orange-600',
+  // 旧兼容
   xuzhisheng: 'bg-gradient-to-r from-ember-500 to-ember-600',
   lixueqin: 'bg-gradient-to-r from-ink to-violet-900',
-  hejiong: 'bg-gradient-to-r from-violet-500/50 to-violet-500/60',
+}
+
+const STYLE_ICON: Record<string, string> = {
+  huangbo: '🎭', hejiong: '🌟', caikangyong: '📖', jialing: '💛',
+  sabeining: '⚡', dongqing: '🌸', wanghan: '📚', madong: '🎯',
+}
+
+const STYLE_NAMES: Record<string, string> = {
+  huangbo: '黄渤', hejiong: '何炅', caikangyong: '蔡康永', jialing: '贾玲',
+  sabeining: '撒贝宁', dongqing: '董卿', wanghan: '汪涵', madong: '马东',
+  xuzhisheng: '徐志胜', lixueqin: '李雪琴',
 }
 
 function levelToPercent(level: number): number {
@@ -183,20 +208,34 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ============ 你最像谁（统计卡） ============ */}
+      {/* ============ 风格路线（统计卡） ============ */}
       <section className="px-5 mt-6 animate-rise" style={{ animationDelay: '.16s' }}>
         <div className="paper-card p-5 relative overflow-hidden">
           <div className="tape" style={{ left: '50%', transform: 'translateX(-50%) rotate(-6deg)' }} />
           <div className="flex items-center justify-between gap-2">
             <div>
               <div className="font-display text-[10.5px] tracking-[.3em] text-violet-600 dark:text-violet-300">YOUR STYLE</div>
-              <h3 className="font-display text-[20px] mt-0.5">你最像谁</h3>
+              <h3 className="font-display text-[20px] mt-0.5">我的风格路线</h3>
             </div>
             <div className="text-right text-[10px] text-ink-soft dark:text-violet-300/55 font-mono leading-tight">
               基于<br />
               <b className="font-display text-violet-600 dark:text-violet-300 text-[15px]">{data.style_stats.total_count}</b> 次评分
             </div>
           </div>
+
+          {/* 用户选择的风格路线 */}
+          {(data.target_styles ?? []).length > 0 && (
+            <div className="mt-4 flex items-center gap-2 flex-wrap">
+              {(data.target_styles ?? []).map(sid => (
+                <span key={sid}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-display
+                    bg-violet-500/10 text-violet-700 dark:bg-violet-500/20 dark:text-violet-200">
+                  <span>{STYLE_ICON[sid] ?? '🎭'}</span>
+                  {STYLE_NAMES[sid] ?? sid}
+                </span>
+              ))}
+            </div>
+          )}
 
           <ul className="mt-4 space-y-2.5 text-[13px]">
             {data.style_stats.distribution.map(item => (
@@ -223,6 +262,11 @@ export default function HomePage() {
                 ? <>最近 7 天略偏 <span className="match-chip ml-0.5 inline-block">{data.style_stats.distribution.find(x => x.key === data.style_stats.top_recent)?.name ?? ''}</span></>
                 : '继续练习，让风格画像更清晰'}
           </div>
+
+          <button onClick={() => navigate('/styles')}
+            className="mt-3 w-full py-2.5 rounded-xl border border-violet-500/30 text-violet-600 dark:text-violet-300 font-display text-[11px] tracking-widest hover:bg-violet-500/6 active:bg-violet-500/10 transition-colors">
+            🎯 选择风格路线
+          </button>
         </div>
       </section>
 

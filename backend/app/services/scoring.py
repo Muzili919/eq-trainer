@@ -27,6 +27,7 @@ async def score_response(
     their_words: str,
     skills_compact_list: str,
     humor_weight: float = 0.30,
+    target_styles: list[str] | None = None,
 ) -> dict:
     try:
         llm = get_async_llm()
@@ -36,6 +37,7 @@ async def score_response(
             user_response=user_response,
             target_skill=target_skill,
             style_references=style_references,
+            target_styles=target_styles,
         )
         p6_sys, p6_usr = p6_skill_identify.build(
             their_words=their_words,
@@ -53,11 +55,21 @@ async def score_response(
         scores = p3_result.get("scores", {})
         total = _compute_total(scores, humor_weight)
 
+        # 处理 rewrite_suggestions：可能是 list 或旧格式 str
+        raw_rewrites = p3_result.get("rewrite_suggestions")
+        rewrite_suggestions = []
+        if isinstance(raw_rewrites, list):
+            rewrite_suggestions = raw_rewrites
+        elif raw_rewrites:
+            # 旧格式兼容
+            rewrite_suggestions = [{"style": "unknown", "text": str(raw_rewrites)}]
+
         return {
             **p3_result,
             "total_score": round(total, 1),
             "well_used": p6_result.get("well_used", []) if p6_result else [],
             "missing": p6_result.get("missing", []) if p6_result else [],
+            "rewrite_suggestions": rewrite_suggestions,
         }
     except Exception as e:
         log.error("score_response failed: %s", e)
@@ -67,7 +79,10 @@ async def score_response(
             "strengths": "",
             "improvements": "评分暂时出了点问题，这轮不计分。",
             "rewrite_suggestion": None,
+            "rewrite_suggestions": [],
             "narrative": "评分暂时出了点问题，这轮会自动跳过。",
+            "techniques_used": [],
+            "techniques_available": [],
             "well_used": [],
             "missing": [],
         }

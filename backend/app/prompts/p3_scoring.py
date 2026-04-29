@@ -1,14 +1,15 @@
-"""P3 评分判断引擎 - 4 维度灵活评分 + 风格匹配 + 描述性反馈
+"""P3 评分判断引擎 - 4 维度评分 + 手法识别 + 多风格改写
 
 详见 docs/PROMPTS.md P3 章节"""
 
-SYSTEM = """你是高情商沟通教练。你的任务是评估用户在对话场景中的回应质量，并给出风格化的反馈。
+SYSTEM = """你是高情商沟通教练。你的任务是评估用户在对话场景中的回应质量，识别使用的手法，并给出多风格改写示范。
 
 评分原则：
 1. 不打"对/错"，只描述"好在哪、怎么更好"
 2. 4 个维度独立打分（0-100），不互相替代
-3. 必须输出严格的 JSON，不要任何解释文字
-4. 风格匹配：从 黄渤/徐志胜/李雪琴/何炅 4 人里选一个最像的，没明显风格则 "none"
+3. 从手法库中识别用户使用了哪些手法
+4. 建议还可以使用的手法
+5. 必须输出严格的 JSON，不要任何解释文字
 """
 
 USER_TEMPLATE = """## 场景
@@ -25,6 +26,12 @@ USER_TEMPLATE = """## 场景
 
 ## 风格基准参考（few-shot 学习）
 {style_references}
+
+## 手法库
+{technique_library}
+
+## 用户正在学习的风格路线
+{user_style_routes}
 
 ## 评分维度（每项 0-100）
 
@@ -44,17 +51,16 @@ USER_TEMPLATE = """## 场景
 - 30 = 完全严肃或干涩
 
 **4. 风格匹配度（style_match）**
-判断这条回应最像 4 人中哪位的风格。
-- 100 = 极度像（用词、思路、节奏都到位）
-- 60 = 有那个味道但不够
-- 30 = 跟 4 位都不像（也可以选 "none"）
+判断这条回应最像用户正在学习的哪个风格路线。
 
 ## 反馈要求
 
 不要说"对/错"。给：
 1. 这条回应**好的地方**（具体到字、词、手法）
 2. **可以更好的方向**（不止一种）
-3. **改写示范**（如果总分 < 70，给 1 个高分版本，标注是哪种风格）
+3. **手法识别**：从上面的手法库中选出用户实际使用的手法（1-3个）
+4. **手法建议**：从用户正在学习的风格路线对应的手法中，建议还可以用哪些（1-3个）
+5. **多风格改写**：为用户选择的每个风格路线各写一个改写版本，标注使用了什么手法和拆解
 
 ## 输出严格 JSON
 
@@ -65,12 +71,13 @@ USER_TEMPLATE = """## 场景
     "humor": 0-100,
     "style_match": 0-100
   }},
-  "style_matched": "huangbo|xuzhisheng|lixueqin|hejiong|none",
-  "narrative": "用教练口吻写的 2-3 句话总结。不列数字，用具体场景和动作描述：你做了什么→效果如何→下一步可以怎样。例如：'你面对甲方的催促没有急着解释，而是先接住了对方的急躁情绪，这让气氛缓和了不少。如果在此基础上主动给出一个具体的时间节点，对方会更安心。'",
+  "style_matched": "最像的风格ID",
+  "techniques_used": ["识别到的手法1", "手法2"],
+  "techniques_available": ["建议使用的手法1", "手法2"],
+  "narrative": "用教练口吻写的 2-3 句话总结。不列数字，用具体场景和动作描述：你做了什么→效果如何→下一步可以怎样。",
   "strengths": "好在哪（一两句话）",
   "improvements": "可以更好的方向",
-  "rewrite_suggestion": "改写示范（可选，总分<70 时给）",
-  "referenced_style_excerpt": "如果改写借鉴了 4 位中谁的某句风格，标出来；否则 null"
+  "rewrite_suggestions": {rewrite_format}
 }}
 """
 
@@ -81,13 +88,43 @@ def build(
     user_response: str,
     target_skill: str,
     style_references: str,
+    target_styles: list[str] | None = None,
 ) -> tuple[str, str]:
     """返回 (system_prompt, user_prompt)"""
+    from app.data.styles import (
+        TECHNIQUES, STYLES,
+        build_technique_prompt_block,
+        build_style_rewrite_block,
+    )
+
+    if not target_styles:
+        target_styles = ["huangbo", "hejiong", "caikangyong"]
+
+    # 构建手法库文本
+    tech_lines = []
+    for name, desc in TECHNIQUES.items():
+        tech_lines.append(f"- {name}：{desc}")
+    technique_library = "\n".join(tech_lines)
+
+    # 构建用户风格路线文本
+    style_route_parts = []
+    for sid in target_styles:
+        s = STYLES.get(sid)
+        if s:
+            style_route_parts.append(f"- {s['name']}（{s['school']}）：{'、'.join(s['learn'])}")
+    user_style_routes = "\n".join(style_route_parts)
+
+    # 构建改写格式
+    rewrite_format = build_style_rewrite_block(target_styles)
+
     user = USER_TEMPLATE.format(
         scenario_setup=scenario_setup,
         dialog_history=dialog_history,
         user_response=user_response,
         target_skill=target_skill,
         style_references=style_references,
+        technique_library=technique_library,
+        user_style_routes=user_style_routes,
+        rewrite_format=rewrite_format,
     )
     return SYSTEM, user

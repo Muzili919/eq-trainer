@@ -8,6 +8,7 @@ import PracticePage from './pages/PracticePage'
 import DiaryPage from './pages/DiaryPage'
 import SkillsPage from './pages/SkillsPage'
 import ScenariosPage from './pages/ScenariosPage'
+import StyleSelectPage from './pages/StyleSelectPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('eq_token')
@@ -15,7 +16,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-const HIDE_TABBAR = ['/login', '/practice']
+const HIDE_TABBAR = ['/login', '/practice', '/styles']
 
 export default function App() {
   const location = useLocation()
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/diary" element={<RequireAuth><DiaryPage /></RequireAuth>} />
         <Route path="/skills" element={<RequireAuth><SkillsPage /></RequireAuth>} />
         <Route path="/scenarios" element={<RequireAuth><ScenariosPage /></RequireAuth>} />
+        <Route path="/styles" element={<RequireAuth><StyleSelectPage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {showTab && <TabBar />}

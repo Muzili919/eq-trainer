@@ -24,7 +24,7 @@ from app.services.auth import get_current_user
 from app.services.roleplay import get_ai_reply
 from app.services.scenario_gen import generate_scenario, render_template_opening
 from app.services.scoring import score_response
-from app.services.socratic import get_guiding_question, coach_followup
+from app.services.socratic import get_guiding_question, coach_reflect, coach_followup
 from app.services.streak import touch_daily_log
 
 router = APIRouter(prefix="/practice", tags=["practice"])
@@ -40,10 +40,16 @@ def _get_skill_or_404(skill_id: str, session: Session) -> Skill:
 
 
 def _build_style_references(user: User, session: Session) -> str:
+    try:
+        user_styles = json.loads(user.target_styles) if user.target_styles else []
+    except Exception:
+        user_styles = []
+    if not user_styles:
+        user_styles = [user.target_style] if user.target_style else ["huangbo"]
     refs = session.exec(
         select(StyleReference)
-        .where(StyleReference.persona == user.target_style)
-        .limit(7)
+        .where(StyleReference.persona.in_(user_styles))
+        .limit(10)
     ).all()
     if not refs:
         refs = session.exec(select(StyleReference).limit(10)).all()
@@ -205,10 +211,14 @@ class TurnResponse(BaseModel):
     strengths: str | None
     improvements: str | None
     rewrite_suggestion: str | None
+    rewrite_suggestions: list[dict] = []
+    techniques_used: list[str] = []
+    techniques_available: list[str] = []
+    style_matched: str | None = None
     socratic_question: str | None
     socratic_encouragement: str | None
-    coach_followup: str | None  # reflection 模式下教练回复
-    ai_fallback: bool = False  # True 表示 AI 完全失败，前端应提示重试
+    coach_followup: str | None
+    ai_fallback: bool = False
     well_used: list[str]
     missing: list[str]
 
@@ -270,6 +280,10 @@ async def submit_turn(
             strengths=None,
             improvements=None,
             rewrite_suggestion=None,
+            rewrite_suggestions=[],
+            techniques_used=[],
+            techniques_available=[],
+            style_matched=None,
             socratic_question=None,
             socratic_encouragement=None,
             coach_followup=followup,
@@ -284,6 +298,12 @@ async def submit_turn(
     style_references = _build_style_references(user, session)
     skills_compact = _build_skills_compact(session)
 
+    # 获取用户选择的风格路线
+    try:
+        user_styles = json.loads(user.target_styles) if user.target_styles else []
+    except Exception:
+        user_styles = [user.target_style] if user.target_style else ["huangbo"]
+
     scoring_result, ai_reply = await __import__("asyncio").gather(
         score_response(
             scenario_setup=practice.scenario_setup or "",
@@ -294,6 +314,7 @@ async def submit_turn(
             their_words=their_words,
             skills_compact_list=skills_compact,
             humor_weight=user.humor_weight or 0.30,
+            target_styles=user_styles,
         ),
         get_ai_reply(
             role_brief=practice.role_brief or "",
@@ -318,6 +339,8 @@ async def submit_turn(
             used_questions=used_questions,
             socratic_attempts=socratic_attempts,
             total_score=total_score,
+            techniques_used=scoring_result.get("techniques_used", []),
+            techniques_available=scoring_result.get("techniques_available", []),
         )
 
     new_turn = PracticeTurn(
@@ -358,6 +381,10 @@ async def submit_turn(
         strengths=scoring_result.get("strengths", ""),
         improvements=scoring_result.get("improvements", ""),
         rewrite_suggestion=scoring_result.get("rewrite_suggestion"),
+        rewrite_suggestions=scoring_result.get("rewrite_suggestions", []),
+        techniques_used=scoring_result.get("techniques_used", []),
+        techniques_available=scoring_result.get("techniques_available", []),
+        style_matched=scoring_result.get("style_matched"),
         socratic_question=socratic_result["question"] if socratic_result else None,
         socratic_encouragement=socratic_result["encouragement"] if socratic_result else None,
         coach_followup=None,
@@ -365,6 +392,76 @@ async def submit_turn(
         well_used=scoring_result.get("well_used", []),
         missing=scoring_result.get("missing", []),
     )
+
+
+class ReflectRequest(BaseModel):
+    user_reflection: str
+    socratic_question: str
+    round_number: int = 1
+
+
+class ReflectResponse(BaseModel):
+    coach_reply: str
+    is_complete: bool
+    technique_hint: str | None = None
+
+
+@router.post("/{practice_id}/reflect", response_model=ReflectResponse)
+async def reflect_turn(
+    practice_id: int,
+    body: ReflectRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """苏格拉底反思接口 — 评分面板内多轮追问"""
+    practice = session.get(Practice, practice_id)
+    if not practice or practice.user_id != user.id:
+        raise HTTPException(404, "练习不存在")
+
+    skill = session.get(Skill, practice.skill_id)
+    turns = session.exec(
+        select(PracticeTurn)
+        .where(PracticeTurn.practice_id == practice_id)
+        .order_by(PracticeTurn.turn_number)
+    ).all()
+
+    # 获取上一轮的 techniques（如果有）
+    last_scored = None
+    for t in reversed(turns):
+        if t.total_score is not None:
+            last_scored = t
+            break
+
+    techniques_used = []
+    if last_scored and last_scored.well_used_skills:
+        try:
+            techniques_used = json.loads(last_scored.well_used_skills)
+        except Exception:
+            pass
+
+    result = await coach_reflect(
+        skill_name=skill.name if skill else "",
+        socratic_question=body.socratic_question,
+        user_reflection=body.user_reflection,
+        round_number=body.round_number,
+        techniques_used=techniques_used,
+    )
+
+    # 记录反思 turn
+    turn_number = len([t for t in turns if t.user_input]) + 1
+    new_turn = PracticeTurn(
+        practice_id=practice_id,
+        turn_number=turn_number,
+        turn_type="reflection",
+        user_input=body.user_reflection,
+        user_input_mode="text",
+        coach_followup=result["coach_reply"],
+        socratic_question=body.socratic_question,
+    )
+    session.add(new_turn)
+    session.commit()
+
+    return ReflectResponse(**result)
 
 
 @router.post("/{practice_id}/complete")

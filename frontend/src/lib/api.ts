@@ -32,7 +32,7 @@ export const api = {
     req<{ access_token: string }>('POST', '/api/v1/auth/login', { username, password }),
   register: (username: string, password: string, target_role = 'general') =>
     req<{ access_token: string }>('POST', '/api/v1/auth/register', { username, password, target_role }),
-  me: () => req<{ id: number; username: string; target_style: string; humor_weight: number; target_role: string }>('GET', '/api/v1/auth/me'),
+  me: () => req<{ id: number; username: string; target_style: string; target_styles: string[]; humor_weight: number; target_role: string }>('GET', '/api/v1/auth/me'),
 
   // Skills
   skills: () => req<SkillItem[]>('GET', '/api/v1/skills'),
@@ -66,6 +66,15 @@ export const api = {
   // Scenario library
   listScenarios: (role: 'auto' | 'all' | 'decoration_boss' | 'property_manager' | 'general' = 'auto') =>
     req<ScenarioListResp>('GET', `/api/v1/scenarios?role=${role}`),
+
+  // Styles
+  getStyles: () => req<{ styles: StyleInfo[] }>('GET', '/api/v1/auth/styles'),
+  saveStyles: (target_styles: string[]) =>
+    req<{ ok: boolean; target_styles: string[] }>('PUT', '/api/v1/auth/styles', { target_styles }),
+
+  // Practice reflect (Socratic)
+  reflect: (practice_id: number, user_reflection: string, socratic_question: string, round_number: number) =>
+    req<ReflectResp>('POST', `/api/v1/practice/${practice_id}/reflect`, { user_reflection, socratic_question, round_number }),
 
   // TTS
   tts: async (text: string, emotion = 'neutral'): Promise<Blob | null> => {
@@ -119,10 +128,23 @@ export interface TurnResp {
   turn_number: number; ai_message: string | null; ai_emotion: string | null; should_end: boolean;
   total_score: number | null; scores: Record<string, number> | null; narrative: string | null;
   strengths: string | null; improvements: string | null; rewrite_suggestion: string | null;
+  rewrite_suggestions: RewriteSuggestion[];
+  techniques_used: string[]; techniques_available: string[]; style_matched: string | null;
   socratic_question: string | null; socratic_encouragement: string | null;
   coach_followup: string | null;
   ai_fallback?: boolean;
   well_used: string[]; missing: string[];
+}
+export interface RewriteSuggestion {
+  style: string; style_name: string; text: string;
+  techniques: string[]; technique_breakdown: string;
+}
+export interface StyleInfo {
+  id: string; name: string; school: string; philosophy: string;
+  famous_scene: string; learn: string[]; for_who: string; icon: string;
+}
+export interface ReflectResp {
+  coach_reply: string; is_complete: boolean; technique_hint: string | null;
 }
 export interface DiaryInput {
   context: string; other_party: string; their_words: string; my_response: string; outcome: string;
@@ -147,6 +169,7 @@ export interface HomeStyleStats {
   total_count: number;
   distribution: HomeStyleItem[];
   top_recent: string | null;
+  target_styles?: string[];
 }
 export interface HomeHighlight {
   their_words: string;
@@ -181,4 +204,5 @@ export interface HomeSummary {
   highlight: HomeHighlight | null;
   today_blind_box: HomeBlindBox;
   skills: HomeSkills;
+  target_styles?: string[];
 }

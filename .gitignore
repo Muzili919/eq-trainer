@@ -12,7 +12,9 @@ venv/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
-backend/app/data/
+# 注意：backend/app/data/ 不再整体忽略——styles.py 是产品数据需要部署
+# 如果要忽略具体子文件，单独写规则
+
 backend_v0_archive/
 dist/
 build/

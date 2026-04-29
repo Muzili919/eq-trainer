@@ -10,6 +10,7 @@ class User(SQLModel, table=True):
     nickname: str | None = None
 
     target_style: str = "huangbo"
+    target_styles: str = "[]"  # JSON array, e.g. ["huangbo","hejiong","caikangyong"]
     humor_weight: float = 0.30
     target_role: str = "general"  # general | property_manager | decoration_boss
 
