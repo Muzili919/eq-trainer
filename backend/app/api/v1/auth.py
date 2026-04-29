@@ -2,13 +2,13 @@
 
 import json
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.core.db import get_session
 from app.data.styles import get_all_styles
-from app.services.auth import get_current_user, login_user, register_user
+from app.services.auth import VALID_ROLES, get_current_user, login_user, register_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -26,6 +26,10 @@ class TokenResponse(BaseModel):
 
 class StylesRequest(BaseModel):
     target_styles: list[str]  # e.g. ["huangbo", "hejiong", "caikangyong"]
+
+
+class RoleUpdateRequest(BaseModel):
+    target_role: str
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -56,6 +60,21 @@ def me(user=Depends(get_current_user)):
         "voice_input_enabled": user.voice_input_enabled,
         "target_role": user.target_role,
     }
+
+
+@router.put("/role")
+def update_role(
+    body: RoleUpdateRequest,
+    user=Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """切换当前账号的目标角色（医美/装修/物业/通用）"""
+    if body.target_role not in VALID_ROLES:
+        raise HTTPException(400, "无效的身份")
+    user.target_role = body.target_role
+    session.add(user)
+    session.commit()
+    return {"ok": True, "target_role": body.target_role}
 
 
 @router.put("/styles")

@@ -38,18 +38,19 @@ export default function LoginPage() {
       if (mode === 'login') {
         const res = await api.login(username.trim(), password)
         access_token = res.access_token
-        // Fetch role from server
-        saveToken(access_token)
-        try {
-          const me = await api.me()
-          resolvedRole = me.target_role
-        } catch { /* use default */ }
       } else {
         const res = await api.register(username.trim(), password, role)
         access_token = res.access_token
       }
 
+      // 不论登录还是注册，都以后端真实 target_role 为准
+      // 防止前端选了"医美老板"但后端旧版没该角色、落库为 "general" 的偏差
       saveToken(access_token)
+      try {
+        const me = await api.me()
+        resolvedRole = me.target_role
+      } catch { /* use default */ }
+
       saveUsername(username.trim())
       upsertAccount({ username: username.trim(), token: access_token, role: resolvedRole, last_seen: Date.now() })
       navigate('/', { replace: true })

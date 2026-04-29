@@ -36,6 +36,8 @@ export const api = {
   register: (username: string, password: string, target_role = 'general') =>
     req<{ access_token: string }>('POST', '/api/v1/auth/register', { username, password, target_role }),
   me: () => req<{ id: number; username: string; target_style: string; target_styles: string[]; humor_weight: number; target_role: string }>('GET', '/api/v1/auth/me'),
+  updateRole: (target_role: string) =>
+    req<{ ok: boolean; target_role: string }>('PUT', '/api/v1/auth/role', { target_role }),
 
   // Skills
   skills: () => req<SkillItem[]>('GET', '/api/v1/skills'),
