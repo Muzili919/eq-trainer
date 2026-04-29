@@ -5,6 +5,7 @@ import { AccountEntry, activateAccount, getAccounts, getActiveAccount, logoutAll
 const ROLE_LABEL: Record<string, string> = {
   decoration_boss: '装修老板',
   property_manager: '物业经理',
+  beauty_clinic_boss: '医美老板',
   general: '通用',
 }
 

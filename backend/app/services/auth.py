@@ -15,7 +15,7 @@ def register_user(username: str, password: str, session: Session, target_role: s
     existing = session.exec(select(User).where(User.username == username)).first()
     if existing:
         raise HTTPException(status_code=400, detail="用户名已存在")
-    valid_roles = {"general", "property_manager", "decoration_boss"}
+    valid_roles = {"general", "property_manager", "decoration_boss", "beauty_clinic_boss"}
     role = target_role if target_role in valid_roles else "general"
     user = User(username=username, password_hash=hash_password(password), target_role=role)
     session.add(user)

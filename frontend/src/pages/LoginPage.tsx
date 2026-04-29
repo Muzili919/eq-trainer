@@ -6,6 +6,7 @@ import { AccountEntry, getAccounts, saveToken, saveUsername, upsertAccount } fro
 const ROLE_OPTIONS = [
   { value: 'decoration_boss', label: '装修公司老板', hint: '客户、工头、供应商' },
   { value: 'property_manager', label: '物业项目经理', hint: '甲方、业主、保安保洁' },
+  { value: 'beauty_clinic_boss', label: '医美店老板', hint: '客户、顾问、医生、供应商' },
   { value: 'general', label: '通用', hint: '家庭 + 朋友圈场景' },
 ]
 
@@ -106,7 +107,7 @@ export default function LoginPage() {
               <div className="text-left">
                 <div className="font-display text-[13px] tracking-wide">{acc.username}</div>
                 <div className="text-[10px] text-ink-soft dark:text-violet-300/50 tracking-widest">
-                  {{ decoration_boss: '装修老板', property_manager: '物业经理', general: '通用' }[acc.role] ?? ''}
+                  {{ decoration_boss: '装修老板', property_manager: '物业经理', beauty_clinic_boss: '医美老板', general: '通用' }[acc.role] ?? ''}
                 </div>
               </div>
               <svg className="ml-auto text-violet-500/50" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

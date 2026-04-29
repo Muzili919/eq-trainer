@@ -67,7 +67,7 @@ export const api = {
   homeSummary: () => req<HomeSummary>('GET', '/api/v1/home/summary'),
 
   // Scenario library
-  listScenarios: (role: 'auto' | 'all' | 'decoration_boss' | 'property_manager' | 'general' = 'auto') =>
+  listScenarios: (role: 'auto' | 'all' | 'decoration_boss' | 'property_manager' | 'beauty_clinic_boss' | 'general' = 'auto') =>
     req<ScenarioListResp>('GET', `/api/v1/scenarios?role=${role}`),
 
   // Styles
@@ -93,6 +93,12 @@ export const api = {
       return null
     }
   },
+
+  // Plan / Invite
+  getPlan: () => req<{ plan: string; expiresAt: string | null }>('GET', '/api/v1/invite/plan'),
+  getUsage: () => req<{ plan: string; limit: number; used: number; remaining: number }>('GET', '/api/v1/invite/usage'),
+  validateInvite: (code: string, userId?: number) =>
+    req<{ valid: boolean; plan?: string; expiresAt?: string }>('POST', '/api/v1/invite/validate', { code, userId }),
 }
 
 export interface ScenarioSkillTag { id: string; name: string; icon: string }

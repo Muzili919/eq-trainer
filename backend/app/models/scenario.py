@@ -17,6 +17,6 @@ class ScenarioTemplate(SQLModel, table=True):
     primary_skills: str  # JSON 数组：本场景主要练哪些技能 id
     difficulty: int = 3  # 1-5
 
-    applicable_roles: str = '["general"]'  # JSON 数组，可包含 general/property_manager/decoration_boss
+    applicable_roles: str = '["general"]'  # JSON 数组，可包含 general/property_manager/decoration_boss/beauty_clinic_boss
 
     generation_prompt: str  # AI 生成具体台词的 prompt 模板（含变量占位）
